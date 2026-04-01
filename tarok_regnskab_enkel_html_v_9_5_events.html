@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tarok-regnskab v8</title>
+  <style>
+    :root {
+      --panel: rgba(255,255,255,0.94);
+      --panel-strong: #1f2937;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #d6c6a4;
+      --gold: #d4a72c;
+      --good: #15803d;
+      --bad: #b91c1c;
+      --card: #fffaf0;
+      --cream: #f8f0d8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top, #f8f2df 0%, #efe6cc 42%, #e7dbc0 100%);
+      min-height: 100vh;
+    }
+    .app { max-width: 1320px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    .header { padding: 20px; }
+    .eyebrow { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    h1,h2,h3,p { margin: 0; }
+    .header-top { display:flex; justify-content:space-between; gap:12px; align-items:start; flex-wrap:wrap; }
+    .header-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .phase-strip { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; margin-top:16px; }
+    .phase { border:1px solid #ddd2b7; border-radius:16px; padding:10px; background:rgba(255,255,255,0.72); font-size:14px; }
+    .phase.active { background:#f8e8b2; border-color:#d8b13c; font-weight:bold; }
+    .main { display:grid; grid-template-columns:1.5fr 1fr; gap:16px; }
+    .table-wrap { padding:8px; }
+    .table-grid { display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:auto auto auto; gap:12px; align-items:stretch; }
+    .seat-top { grid-column:2; grid-row:1; }
+    .seat-left { grid-column:1; grid-row:2; }
+    .seat-center { grid-column:2; grid-row:2; }
+    .seat-right { grid-column:3; grid-row:2; }
+    .seat-bottom { grid-column:2; grid-row:3; }
+    .player-card { background:var(--card); border:2px solid #ded2bb; border-radius:24px; padding:14px; min-height:220px; box-shadow:0 10px 20px rgba(0,0,0,0.05); display:flex; flex-direction:column; gap:12px; }
+    .player-card.active { border-color:var(--gold); }
+    .player-card.inactive { opacity:0.65; }
+    .player-top { display:flex; justify-content:space-between; align-items:start; gap:8px; }
+    .badges { display:flex; flex-wrap:wrap; justify-content:end; gap:6px; }
+    .badge { border:1px solid #d3c5a7; border-radius:999px; padding:3px 8px; font-size:12px; background:#fff; }
+    .badge.active { background:#f8e8b2; }
+    .badge.dealer { background:#e7eefb; }
+    .tarot-face { border-radius:18px; background:linear-gradient(180deg,#fff7df,#f3e4bf); border:1px solid #dfcfaa; padding:10px; text-align:center; }
+    .tarot-icon { width:56px; height:56px; display:inline-block; }
+    .small { font-size:12px; color:var(--muted); }
+    .saldo-row { display:flex; justify-content:space-between; align-items:end; gap:8px; }
+    .saldo { font-size:30px; font-weight:bold; }
+    .delta.good { color:var(--good); font-weight:bold; }
+    .delta.bad { color:var(--bad); font-weight:bold; }
+    .delta.zero { color:var(--muted); }
+    .center-panel { background:var(--panel-strong); color:#fff; border-radius:32px; padding:18px; min-height:100%; display:flex; flex-direction:column; gap:16px; box-shadow:0 16px 30px rgba(0,0,0,0.25); }
+    .cups, .actions-grid, .special-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .cup { border-radius:20px; background:rgba(255,255,255,0.1); padding:14px; }
+    .cup-value { font-size:32px; font-weight:bold; margin:6px 0 10px; }
+    button,select,input,textarea { font:inherit; }
+    button { border:1px solid #d1c2a3; background:#fff; color:var(--ink); border-radius:14px; padding:10px 12px; cursor:pointer; }
+    button:hover { background:#faf5e8; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
+    .btn-dark { background:#f2ead0; }
+    .btn-primary { background:#ead28a; border-color:#cda53a; font-weight:bold; }
+    .side { display:grid; gap:16px; }
+    .side-section { padding:18px; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .field { display:grid; gap:6px; margin-top:10px; }
+    input,select,textarea { border:1px solid #d7cab0; border-radius:12px; padding:10px 12px; background:#fffdf8; }
+    textarea { min-height:72px; resize:vertical; }
+    .facts { background:#f7f4eb; border-radius:18px; padding:12px; display:grid; gap:8px; font-size:14px; }
+    .fact { display:flex; justify-content:space-between; gap:12px; }
+    .history-list { display:grid; gap:10px; max-height:520px; overflow:auto; padding-right:4px; }
+    .history-item { border:1px solid #e0d5bf; border-radius:18px; padding:12px; background:#fff; display:grid; gap:8px; }
+    .history-line { font-size:14px; }
+    .history-deltas { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .history-delta { border-radius:12px; padding:8px 10px; background:#f7f4eb; display:flex; justify-content:space-between; gap:8px; font-size:14px; }
+    .result-card { border-radius:18px; background:var(--cream); padding:10px; border:1px solid #d6c6a4; color:#1f2937; }
+    .icon-label { display:flex; align-items:center; gap:8px; }
+    .icon-label .tarot-icon { width:40px; height:40px; }
+    .good { color:var(--good); } .bad { color:var(--bad); }
+
+    .warning-box { border:1px solid #f0c36d; background:#fff6db; color:#7a4b00; border-radius:12px; padding:10px 12px; font-size:13px; line-height:1.4; }
+    .warning-box.alert { display:block; animation:pulse-warning 1.1s ease-in-out infinite; }
+    @keyframes pulse-warning {
+      0% { box-shadow:0 0 0 0 rgba(212,167,44,0.42); }
+      70% { box-shadow:0 0 0 10px rgba(212,167,44,0); }
+      100% { box-shadow:0 0 0 0 rgba(212,167,44,0); }
+    }
+    @media (max-width:980px) { .main { grid-template-columns:1fr; } }
+    @media (max-width:760px) {
+      .phase-strip { grid-template-columns:1fr 1fr; }
+      .table-grid { grid-template-columns:1fr; grid-template-rows:auto; }
+      .seat-top,.seat-left,.seat-center,.seat-right,.seat-bottom { grid-column:auto; grid-row:auto; }
+      .cups,.actions-grid,.special-grid,.row { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="panel header">
+    <div class="header-top">
+      <div>
+        <div class="eyebrow">Tarok-regnskab</div>
+        <h1 id="sessionName"></h1>
+        <p id="headerState" style="margin-top:8px;color:var(--muted);"></p>
+      </div>
+      <div class="header-actions">
+        <button id="undoBtn">Fortryd</button>
+        <button id="exportBtn">Eksportér JSON</button>
+      </div>
+    </div>
+    <div class="phase-strip" id="phaseStrip"></div>
+  </div>
+
+  <div class="main">
+    <div class="panel table-wrap">
+      <div class="table-grid">
+        <div class="seat-top" id="seat-top"></div>
+        <div class="seat-left" id="seat-left"></div>
+        <div class="seat-center">
+          <div class="center-panel">
+            <div>
+              <div class="eyebrow" style="color:#c9d2dc;">Aktuel tilstand</div>
+              <h2 id="centerPhase"></h2>
+              <p id="centerMeta" style="margin-top:8px;color:#cfd8e3;line-height:1.5;"></p>
+            </div>
+
+            <div class="cups">
+              <div class="cup">
+                <div class="icon-label" style="color:#d9e0ea;"><span id="iconMagicianCup"></span><span>Pagat-kop</span></div>
+                <div class="cup-value" id="pagatValue"></div>
+                <div class="small">Fyldes automatisk når giveren registreres</div>
+              </div>
+              <div class="cup">
+                <div class="icon-label" style="color:#d9e0ea;"><span id="iconKingCup"></span><span>Konge-kop</span></div>
+                <div class="cup-value" id="kongeValue"></div>
+                <div class="small">Fyldes automatisk når giveren registreres</div>
+              </div>
+            </div>
+
+            <div class="actions-grid" id="startActions">
+              <button class="btn-dark" id="dealerFeeBtn">Giver betaler 5</button>
+              <button class="btn-dark" id="goAnnouncementsBtn">Til meldinger</button>
+            </div>
+
+            <div class="actions-grid" id="announcementActions" style="display:none;">
+              <div class="small" style="color:#d9e0ea;padding:10px 0;">Meldinger registreres i panelet til højre.</div>
+              <button class="btn-dark" id="goPlayBtn">Til spil</button>
+            </div>
+
+            <div class="actions-grid" id="playActions" style="display:none;">
+              <button class="btn-dark" id="goScoringBtn">Til optælling</button>
+            </div>
+
+            <div>
+              <div class="eyebrow" id="resultHeading" style="color:#c9d2dc;display:none;">Resultat i slutningen af spillet</div>
+              <div class="result-card" id="resultPanel" style="display:none;"></div>
+              <div class="special-grid" id="specialGrid"></div>
+            </div>
+          </div>
+        </div>
+        <div class="seat-right" id="seat-right"></div>
+        <div class="seat-bottom" id="seat-bottom"></div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="panel side-section">
+        <h3>Handlingspanel</h3>
+
+        <div class="field" id="settingsSection">
+          <label>Session</label>
+          <div class="row">
+            <div class="field" style="margin-top:0;">
+              <label for="playerCountSelect">Antal spillere</label>
+              <select id="playerCountSelect">
+                <option value="3">3 spillere</option>
+                <option value="4" selected>4 spillere</option>
+              </select>
+            </div>
+            <div class="field" style="margin-top:0;">
+              <label for="sessionTitle">Navn på session</label>
+              <input id="sessionTitle" placeholder="Tarok aften" />
+            </div>
+          </div>
+          <button class="btn-dark" id="applySettingsBtn">Gem session</button>
+        </div>
+
+        <div class="field" id="nameSection">
+          <label>Spillernavne</label>
+          <div class="row">
+            <input id="namePlayer0" placeholder="Spiller 1" />
+            <input id="namePlayer1" placeholder="Spiller 2" />
+          </div>
+          <div class="row" id="nameRowBottom">
+            <input id="namePlayer2" placeholder="Spiller 3" />
+            <input id="namePlayer3" placeholder="Spiller 4" />
+          </div>
+          <button class="btn-dark" id="applyNamesBtn">Gem navne</button>
+        </div>
+
+        <div class="field" id="announcementSection" style="display:none;">
+          <label>Meldinger</label>
+          <div class="row">
+            <div class="field" style="margin-top:0;">
+              <label for="announcePlayer">Aktiv spiller</label>
+              <select id="announcePlayer"></select>
+            </div>
+            <div class="field" style="margin-top:0;">
+              <label for="announceAmount">Point</label>
+              <input id="announceAmount" type="number" value="0" min="0" step="5" />
+            </div>
+          </div>
+          <button class="btn-primary" id="applyAnnouncementBtn">Anvend melding</button>
+          <div class="small">Kun aktive spillere kan vælges. Hver aktiv spiller må kun melde én gang pr. omgang. Meldinger skal være delelige med 5.</div>
+        </div>
+
+        <div class="field" id="scoreSection" style="display:none;">
+          <label>Optælling af stik- og kortpoint</label>
+          <div class="row">
+            <div class="field" id="countWrap0" style="margin-top:0;">
+              <label for="countPlayer0">Anna</label>
+              <input id="countPlayer0" type="number" value="26" min="0" step="1" />
+            </div>
+            <div class="field" id="countWrap1" style="margin-top:0;">
+              <label for="countPlayer1">Bent</label>
+              <input id="countPlayer1" type="number" value="26" min="0" step="1" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field" id="countWrap2" style="margin-top:0;">
+              <label for="countPlayer2">Clara</label>
+              <input id="countPlayer2" type="number" value="26" min="0" step="1" />
+            </div>
+            <div class="field" id="countWrap3" style="margin-top:0;">
+              <label for="countPlayer3">David</label>
+              <input id="countPlayer3" type="number" value="0" min="0" step="1" />
+            </div>
+          </div>
+          <button class="btn-primary" id="applyScoreBtn">Anvend optælling</button>
+          <div class="small">Kun aktive spillere tæller med. 78 er vejledende. Afvigelser giver advarsel, ikke blokering.</div>
+          <div class="warning-box" id="countWarning" style="display:none;"></div>
+        </div>
+
+        <div class="field">
+          <label for="roundNote">Note til omgangen</label>
+          <textarea id="roundNote" placeholder="Fx 11 tarokker og sidste stik"></textarea>
+        </div>
+
+        <div class="facts" style="margin-top:12px;">
+          <div class="fact"><span>Round balance</span><strong id="roundBalance"></strong></div>
+          <div class="fact"><span>Optælling i alt</span><strong id="countTotal"></strong></div>
+          <div class="fact"><span>Samlet formue</span><strong id="totalWealth"></strong></div>
+          <div class="fact"><span>Seneste handling</span><strong id="lastAction" style="text-align:right;"></strong></div>
+        </div>
+
+        <button class="btn-primary" style="margin-top:12px;width:100%;display:none;" id="closeRoundBtn">Ny omgang</button>
+      </div>
+
+      <div class="panel side-section">
+        <h3>Historik</h3>
+        <div class="history-list" id="historyList" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+(() => {
+  const PHASES = [
+    { key: 'round_start', label: 'Start' },
+    { key: 'announcements', label: 'Meldinger' },
+    { key: 'trick_play', label: 'Spil' },
+    { key: 'scoring', label: 'Optælling' },
+    { key: 'round_closed', label: 'Færdig' },
+  ];
+
+  const RESULT_TYPES = {
+    NOLO: 'nolo',
+    PAGAT_ULTIMO: 'pagat_ultimo',
+    KING_ULTIMO: 'king_ultimo',
+    LAST_TRICK: 'last_trick',
+    PAGAT_DOWN: 'pagat_down',
+    KING_DOWN: 'king_down',
+  };
+
+  const DEFAULT_NAMES = ['Anna', 'Bent', 'Clara', 'David'];
+  const IMPLICIT_LAST_TRICK_TYPES = new Set([
+    RESULT_TYPES.PAGAT_ULTIMO,
+    RESULT_TYPES.KING_ULTIMO,
+    RESULT_TYPES.PAGAT_DOWN,
+    RESULT_TYPES.KING_DOWN,
+  ]);
+
+  function clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  function phaseLabel(key) {
+    return PHASES.find(p => p.key === key)?.label ?? key;
+  }
+
+  function tarotSymbolName(type) {
+    if (type === RESULT_TYPES.NOLO) return 'fool';
+    if (type === RESULT_TYPES.PAGAT_ULTIMO || type === RESULT_TYPES.PAGAT_DOWN) return 'magician';
+    if (type === RESULT_TYPES.KING_ULTIMO || type === RESULT_TYPES.KING_DOWN) return 'king';
+    return 'sun';
+  }
+
+  function svgIcon(name) {
+    const common = 'class="tarot-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"';
+    if (name === 'fool') return `<svg ${common}><rect x="8" y="6" width="48" height="52" rx="6" fill="#fff7df" stroke="#b8912f"/><circle cx="32" cy="20" r="7" fill="#f4d35e" stroke="#b8912f"/><path d="M20 46c4-8 20-8 24 0" fill="none" stroke="#355070" stroke-width="3"/><path d="M24 33l8-6 8 6" fill="none" stroke="#6d597a" stroke-width="3"/></svg>`;
+    if (name === 'magician') return `<svg ${common}><rect x="8" y="6" width="48" height="52" rx="6" fill="#fff7df" stroke="#b8912f"/><path d="M20 22h24" stroke="#355070" stroke-width="3"/><path d="M32 16v18" stroke="#355070" stroke-width="3"/><circle cx="32" cy="42" r="9" fill="#f4d35e" stroke="#b8912f"/><path d="M24 42h16" stroke="#6d597a" stroke-width="3"/></svg>`;
+    if (name === 'king') return `<svg ${common}><rect x="8" y="6" width="48" height="52" rx="6" fill="#fff7df" stroke="#b8912f"/><path d="M20 22l6-8 6 8 6-8 6 8" fill="none" stroke="#b8912f" stroke-width="3"/><rect x="20" y="24" width="24" height="20" rx="4" fill="#355070"/><circle cx="32" cy="34" r="5" fill="#f4d35e"/></svg>`;
+    return `<svg ${common}><rect x="8" y="6" width="48" height="52" rx="6" fill="#fff7df" stroke="#b8912f"/><circle cx="32" cy="24" r="10" fill="#f4d35e" stroke="#b8912f"/><path d="M32 12v24M20 24h24" stroke="#e76f51" stroke-width="3"/><path d="M18 46c4-4 10-6 14-6s10 2 14 6" fill="none" stroke="#355070" stroke-width="3"/></svg>`;
+  }
+
+  function fmtDelta(n) {
+    return n > 0 ? `+${n}` : String(n);
+  }
+
+  function eventLabel(type) {
+    return {
+      [RESULT_TYPES.NOLO]: 'Nolo',
+      [RESULT_TYPES.PAGAT_ULTIMO]: 'Pagat ultimo',
+      [RESULT_TYPES.KING_ULTIMO]: 'Konge ultimo',
+      [RESULT_TYPES.LAST_TRICK]: 'Sidste stik',
+      [RESULT_TYPES.PAGAT_DOWN]: 'Pagat ned',
+      [RESULT_TYPES.KING_DOWN]: 'Konge ned',
+    }[type] ?? type;
+  }
+
+  function eventSentence(players, status) {
+    const event = status.event ?? status;
+    let base = '';
+    if (event.type === RESULT_TYPES.NOLO) base = `${players[event.player].name} havde nolo.`;
+    if (event.type === RESULT_TYPES.LAST_TRICK) base = `${players[event.player].name} tog sidste stik.`;
+    if (event.type === RESULT_TYPES.PAGAT_ULTIMO) base = `${players[event.player].name} ultimere pagat.`;
+    if (event.type === RESULT_TYPES.KING_ULTIMO) base = `${players[event.player].name} ultimere konge.`;
+    if (event.type === RESULT_TYPES.PAGAT_DOWN) base = `${players[event.player].name} gik pagat ned; sidste stik til ${players[event.lastTrickWinner].name}.`;
+    if (event.type === RESULT_TYPES.KING_DOWN) base = `${players[event.player].name} gik konge ned; sidste stik til ${players[event.lastTrickWinner].name}.`;
+    if (status.ignored) base += ` (ignoreres: ${status.reason})`;
+    return base;
+  }
+
+  const dom = {
+    sessionName: document.getElementById('sessionName'),
+    headerState: document.getElementById('headerState'),
+    phaseStrip: document.getElementById('phaseStrip'),
+    centerPhase: document.getElementById('centerPhase'),
+    centerMeta: document.getElementById('centerMeta'),
+    pagatValue: document.getElementById('pagatValue'),
+    kongeValue: document.getElementById('kongeValue'),
+    seatTop: document.getElementById('seat-top'),
+    seatLeft: document.getElementById('seat-left'),
+    seatRight: document.getElementById('seat-right'),
+    seatBottom: document.getElementById('seat-bottom'),
+    startActions: document.getElementById('startActions'),
+    announcementActions: document.getElementById('announcementActions'),
+    playActions: document.getElementById('playActions'),
+    resultHeading: document.getElementById('resultHeading'),
+    resultPanel: document.getElementById('resultPanel'),
+    specialGrid: document.getElementById('specialGrid'),
+    announcementSection: document.getElementById('announcementSection'),
+    scoreSection: document.getElementById('scoreSection'),
+    announcePlayer: document.getElementById('announcePlayer'),
+    announceAmount: document.getElementById('announceAmount'),
+    applyAnnouncementBtn: document.getElementById('applyAnnouncementBtn'),
+    applyScoreBtn: document.getElementById('applyScoreBtn'),
+    closeRoundBtn: document.getElementById('closeRoundBtn'),
+    roundBalance: document.getElementById('roundBalance'),
+    countTotal: document.getElementById('countTotal'),
+    countWarning: document.getElementById('countWarning'),
+    totalWealth: document.getElementById('totalWealth'),
+    lastAction: document.getElementById('lastAction'),
+    historyList: document.getElementById('historyList'),
+    dealerFeeBtn: document.getElementById('dealerFeeBtn'),
+    goAnnouncementsBtn: document.getElementById('goAnnouncementsBtn'),
+    goPlayBtn: document.getElementById('goPlayBtn'),
+    goScoringBtn: document.getElementById('goScoringBtn'),
+    undoBtn: document.getElementById('undoBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    applyNamesBtn: document.getElementById('applyNamesBtn'),
+    applySettingsBtn: document.getElementById('applySettingsBtn'),
+    playerCountSelect: document.getElementById('playerCountSelect'),
+    sessionTitle: document.getElementById('sessionTitle'),
+    nameRowBottom: document.getElementById('nameRowBottom'),
+    roundNote: document.getElementById('roundNote'),
+    iconMagicianCup: document.getElementById('iconMagicianCup'),
+    iconKingCup: document.getElementById('iconKingCup'),
+  };
+
+  const state = {
+    session: initialSession(),
+    undoStack: [],
+  };
+
+  function visiblePlayerIds(session = state.session) {
+    return Array.from({ length: session.playerCount }, (_, i) => i);
+  }
+
+  function computeParticipants(playerCount, dealer) {
+    if (playerCount === 3) return { active: [0, 1, 2], sittingOut: null };
+    const left = (dealer + 3) % 4;
+    const right = (dealer + 1) % 4;
+    const opposite = (dealer + 2) % 4;
+    return { active: [dealer, left, right], sittingOut: opposite };
+  }
+
+  function createRound(playerCount, dealer) {
+    const parts = computeParticipants(playerCount, dealer);
+    return {
+      state: 'round_start',
+      active: parts.active,
+      sittingOut: parts.sittingOut,
+      events: [],
+      note: '',
+      playerDeltas: new Array(4).fill(0),
+      cupDeltas: { pagat: 0, konge: 0 },
+      lastAction: 'Ny omgang oprettet',
+      flags: { dealerFeeDone: false, scoringApplied: false },
+      counts: [null, null, null, null],
+      countWarning: '',
+      announcementsMade: [false, false, false, false],
+      announcementsLog: [],
+    };
+  }
+
+  function initialSession() {
+    const players = DEFAULT_NAMES.map((name, id) => ({ id, name, balance: 400 }));
+    const session = {
+      sessionName: 'Tarok aften',
+      playerCount: 4,
+      round: 1,
+      dealer: 0,
+      players,
+      cups: { pagat: 0, konge: 0 },
+      history: [],
+      currentRound: createRound(4, 0),
+    };
+    recalculateDerived(session);
+    return session;
+  }
+
+  function currentCupValue(cupName, session = state.session) {
+    return session.cups[cupName] + session.currentRound.cupDeltas[cupName];
+  }
+
+  function roundBalanceOk(session = state.session) {
+    const r = session.currentRound;
+    return r.playerDeltas.reduce((a, b) => a + b, 0) + r.cupDeltas.pagat + r.cupDeltas.konge === 0;
+  }
+
+  function totalWealth(session = state.session) {
+    return visiblePlayerIds(session).reduce((sum, i) => sum + session.players[i].balance, 0) + session.cups.pagat + session.cups.konge;
+  }
+
+  function getInputCountTotal() {
+    return state.session.currentRound.active.reduce((sum, id) => {
+      const value = Number(document.getElementById(`countPlayer${id}`)?.value ?? 0);
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+  }
+
+  function getStoredCountTotal(round = state.session.currentRound) {
+    return round.active.reduce((sum, id) => sum + (Number(round.counts[id]) || 0), 0);
+  }
+
+  function autoRefillEmptyCups(copy) {
+    ['pagat', 'konge'].forEach(cupName => {
+      const value = copy.cups[cupName];
+      if (value === 0) {
+        visiblePlayerIds(copy).forEach(i => {
+          copy.currentRound.playerDeltas[i] -= 20;
+        });
+        copy.currentRound.cupDeltas[cupName] += copy.playerCount * 20;
+      }
+    });
+  }
+
+  function applySymmetricTransferToRound(round, playerId, amount) {
+    round.active.forEach(id => {
+      if (id === playerId) round.playerDeltas[id] += amount * 2;
+      else round.playerDeltas[id] -= amount;
+    });
+  }
+
+  function hasEvent(type, round = state.session.currentRound) {
+    return (round.events || []).some(event => event.type === type);
+  }
+
+  function hasAnyImplicitLastTrick(round = state.session.currentRound) {
+    return (round.events || []).some(event => IMPLICIT_LAST_TRICK_TYPES.has(event.type));
+  }
+
+  function hasPagatResolution(round = state.session.currentRound) {
+    return (round.events || []).some(event => event.type === RESULT_TYPES.PAGAT_ULTIMO || event.type === RESULT_TYPES.PAGAT_DOWN);
+  }
+
+  function hasKingResolution(round = state.session.currentRound) {
+    return (round.events || []).some(event => event.type === RESULT_TYPES.KING_ULTIMO || event.type === RESULT_TYPES.KING_DOWN);
+  }
+
+  function computeEventStatuses(round = state.session.currentRound) {
+    const events = round.events || [];
+    const hasNolo = events.some(event => event.type === RESULT_TYPES.NOLO);
+    const hasImplicit = events.some(event => IMPLICIT_LAST_TRICK_TYPES.has(event.type));
+    return events.map(event => {
+      if (hasNolo && (event.type === RESULT_TYPES.PAGAT_ULTIMO || event.type === RESULT_TYPES.KING_ULTIMO)) {
+        return { event, ignored: true, reason: 'ultimering tæller ikke ved nolo' };
+      }
+      if (hasNolo && event.type === RESULT_TYPES.LAST_TRICK) {
+        return { event, ignored: true, reason: 'sidste stik tæller ikke ved nolo' };
+      }
+      if (event.type === RESULT_TYPES.LAST_TRICK && hasImplicit) {
+        return { event, ignored: true, reason: 'sidste stik er allerede dækket af ultimo/ned' };
+      }
+      return { event, ignored: false, reason: '' };
+    });
+  }
+
+  function recalculateDerived(sessionCopy) {
+    const round = sessionCopy.currentRound;
+    round.playerDeltas = new Array(4).fill(0);
+    round.cupDeltas = { pagat: 0, konge: 0 };
+
+    if (round.flags.dealerFeeDone) {
+      autoRefillEmptyCups(sessionCopy);
+      const dealer = sessionCopy.dealer;
+      round.active.forEach(id => {
+        if (id !== dealer) {
+          round.playerDeltas[dealer] -= 5;
+          round.playerDeltas[id] += 5;
+        }
+      });
+    }
+
+    round.announcementsLog.forEach(item => {
+      applySymmetricTransferToRound(round, item.player, item.amount);
+    });
+
+    computeEventStatuses(round).forEach(status => {
+      if (status.ignored) return;
+      const event = status.event;
+      if (event.type === RESULT_TYPES.NOLO) {
+        applySymmetricTransferToRound(round, event.player, 25);
+        return;
+      }
+      if (event.type === RESULT_TYPES.LAST_TRICK) {
+        applySymmetricTransferToRound(round, event.player, 20);
+        return;
+      }
+      if (event.type === RESULT_TYPES.PAGAT_ULTIMO || event.type === RESULT_TYPES.KING_ULTIMO) {
+        const amount = event.type === RESULT_TYPES.PAGAT_ULTIMO ? 45 : 40;
+        const cupName = event.type === RESULT_TYPES.PAGAT_ULTIMO ? 'pagat' : 'konge';
+        applySymmetricTransferToRound(round, event.player, amount);
+        const cupValue = sessionCopy.cups[cupName] + round.cupDeltas[cupName];
+        round.playerDeltas[event.player] += cupValue;
+        round.cupDeltas[cupName] -= cupValue;
+        return;
+      }
+      if (event.type === RESULT_TYPES.PAGAT_DOWN || event.type === RESULT_TYPES.KING_DOWN) {
+        const amount = event.type === RESULT_TYPES.PAGAT_DOWN ? 45 : 40;
+        const cupName = event.type === RESULT_TYPES.PAGAT_DOWN ? 'pagat' : 'konge';
+        round.active.forEach(id => {
+          if (id === event.player) round.playerDeltas[id] -= amount * 2;
+          else round.playerDeltas[id] += amount;
+        });
+        const cupValue = sessionCopy.cups[cupName] + round.cupDeltas[cupName];
+        round.playerDeltas[event.player] -= cupValue;
+        round.cupDeltas[cupName] += cupValue;
+        applySymmetricTransferToRound(round, event.lastTrickWinner, 20);
+      }
+    });
+
+    if (round.flags.scoringApplied && !hasEvent(RESULT_TYPES.NOLO, round)) {
+      round.active.forEach(id => {
+        const count = Number(round.counts[id] || 0);
+        applySymmetricTransferToRound(round, id, count);
+      });
+    }
+
+    if (round.flags.scoringApplied) {
+      const total = getStoredCountTotal(round);
+      round.countWarning = total !== 78
+        ? `Advarsel: optællingen summerer til ${total}, ikke 78. Det kan være korrekt ved ecartering af billedkort.`
+        : '';
+    } else {
+      round.countWarning = '';
+    }
+  }
+
+  function updateSession(mutator) {
+    state.undoStack.push(clone(state.session));
+    const copy = clone(state.session);
+    mutator(copy);
+    recalculateDerived(copy);
+    state.session = copy;
+    render();
+  }
+
+  function canGoToAnnouncements(session = state.session) {
+    return session.currentRound.state === 'round_start' && session.currentRound.flags.dealerFeeDone;
+  }
+
+  function canGoToPlay(session = state.session) {
+    return session.currentRound.state === 'announcements';
+  }
+
+  function canAdvanceFromPlay(session = state.session) {
+    return session.currentRound.state === 'trick_play';
+  }
+
+  function canApplyScore(session = state.session) {
+    if (session.currentRound.state !== 'scoring') return false;
+    return session.currentRound.active.every(id => {
+      const value = Number(document.getElementById(`countPlayer${id}`)?.value ?? NaN);
+      return Number.isFinite(value) && value >= 0;
+    });
+  }
+
+  function canCloseRound(session = state.session) {
+    const r = session.currentRound;
+    if (r.state !== 'round_closed') return false;
+    if (!roundBalanceOk(session)) return false;
+    if (hasEvent(RESULT_TYPES.NOLO, r)) return true;
+    return !!r.flags.scoringApplied;
+  }
+
+  function actorsConflict(existingEvent, newType, newPlayer) {
+    if (existingEvent.player == null || newPlayer == null) return false;
+    if (existingEvent.player !== newPlayer) return false;
+    return true;
+  }
+
+  function allowedFollowUps(round = state.session.currentRound, actor = null) {
+    if (round.state !== 'trick_play') return [];
+    const events = round.events || [];
+    if (!events.length) {
+      return [
+        RESULT_TYPES.NOLO,
+        RESULT_TYPES.PAGAT_ULTIMO,
+        RESULT_TYPES.KING_ULTIMO,
+        RESULT_TYPES.PAGAT_DOWN,
+        RESULT_TYPES.KING_DOWN,
+        RESULT_TYPES.LAST_TRICK,
+      ];
+    }
+    if (events.length >= 2) return [];
+
+    const first = events[0];
+
+    if (first.type === RESULT_TYPES.LAST_TRICK) return [];
+
+    if (first.type === RESULT_TYPES.NOLO) {
+      return [RESULT_TYPES.PAGAT_DOWN, RESULT_TYPES.KING_DOWN]
+        .filter(type => actor == null || !actorsConflict(first, type, actor));
+    }
+
+    if (first.type === RESULT_TYPES.PAGAT_ULTIMO) {
+      return [RESULT_TYPES.KING_DOWN]
+        .filter(type => actor == null || !actorsConflict(first, type, actor));
+    }
+
+    if (first.type === RESULT_TYPES.KING_ULTIMO) {
+      return [RESULT_TYPES.KING_DOWN]
+        .filter(type => actor == null || !actorsConflict(first, type, actor));
+    }
+
+    if (first.type === RESULT_TYPES.PAGAT_DOWN) {
+      return [RESULT_TYPES.NOLO]
+        .filter(type => actor == null || !actorsConflict(first, type, actor));
+    }
+
+    if (first.type === RESULT_TYPES.KING_DOWN) {
+      return [RESULT_TYPES.NOLO, RESULT_TYPES.PAGAT_ULTIMO, RESULT_TYPES.KING_ULTIMO]
+        .filter(type => actor == null || !actorsConflict(first, type, actor));
+    }
+
+    return [];
+  }
+
+  function canAddEvent(type, round = state.session.currentRound, actor = null) {
+    return allowedFollowUps(round, actor).includes(type);
+  }
+
+  function applySessionSettings() {
+    const count = Number(dom.playerCountSelect.value);
+    const title = dom.sessionTitle.value.trim();
+    updateSession(copy => {
+      copy.playerCount = count;
+      if (title) copy.sessionName = title;
+      if (copy.dealer >= copy.playerCount) copy.dealer = 0;
+      copy.currentRound = createRound(copy.playerCount, copy.dealer);
+      copy.history = [];
+      copy.currentRound.lastAction = `Session sat til ${count} spillere`;
+    });
+    renderDefaultCounts();
+  }
+
+  function applyNames() {
+    updateSession(copy => {
+      visiblePlayerIds(copy).forEach(i => {
+        const el = document.getElementById(`namePlayer${i}`);
+        const value = el?.value.trim();
+        if (value) copy.players[i].name = value;
+      });
+      copy.currentRound.lastAction = 'Spillernavne opdateret';
+    });
+  }
+
+  function recordDealerFee() {
+    if (state.session.currentRound.state !== 'round_start' || state.session.currentRound.flags.dealerFeeDone) return;
+    updateSession(copy => {
+      copy.currentRound.flags.dealerFeeDone = true;
+      copy.currentRound.lastAction = 'Kopper fyldt automatisk og giverbetaling bogført';
+    });
+  }
+
+  function setPhase(nextState) {
+    if (nextState === 'announcements' && !canGoToAnnouncements()) return;
+    if (nextState === 'trick_play' && !canGoToPlay()) return;
+    updateSession(copy => {
+      copy.currentRound.state = nextState;
+      copy.currentRound.lastAction = `Fase ændret til ${phaseLabel(nextState)}`;
+    });
+  }
+
+  function advanceFromPlay() {
+    if (!canAdvanceFromPlay()) return;
+    updateSession(copy => {
+      const hasNoloNow = copy.currentRound.events.some(event => event.type === RESULT_TYPES.NOLO);
+      copy.currentRound.state = hasNoloNow ? 'round_closed' : 'scoring';
+      copy.currentRound.lastAction = hasNoloNow ? 'Nolo-runde afsluttet uden optælling' : 'Fase ændret til Optælling';
+    });
+  }
+
+  function applyAnnouncement() {
+    if (state.session.currentRound.state !== 'announcements') return;
+    const playerId = Number(dom.announcePlayer.value);
+    const amount = Number(dom.announceAmount.value || 0);
+    if (!Number.isFinite(playerId) || !Number.isFinite(amount) || amount < 0 || amount % 5 !== 0) return;
+    if (state.session.currentRound.announcementsMade[playerId]) return;
+
+    updateSession(copy => {
+      copy.currentRound.announcementsMade[playerId] = true;
+      copy.currentRound.announcementsLog.push({ player: playerId, amount });
+      copy.currentRound.lastAction = `${copy.players[playerId].name} melder ${amount}`;
+    });
+  }
+
+  function chooseEvent(type) {
+    const actorRaw = document.getElementById('resultPlayer')?.value ?? '';
+    if (actorRaw === '') return;
+    const actor = Number(actorRaw);
+    if (!Number.isFinite(actor) || !canAddEvent(type, state.session.currentRound, actor)) return;
+
+    const event = { type, player: actor };
+    let lastAction = `${state.session.players[actor].name} registreret med ${eventLabel(type).toLowerCase()}`;
+
+    if (type === RESULT_TYPES.PAGAT_DOWN || type === RESULT_TYPES.KING_DOWN) {
+      const winnerRaw = document.getElementById('resultWinner')?.value ?? '';
+      if (winnerRaw === '') return;
+      const winner = Number(winnerRaw);
+      if (!Number.isFinite(winner) || winner === actor) return;
+      event.lastTrickWinner = winner;
+      lastAction = `${state.session.players[actor].name} registreret med ${eventLabel(type).toLowerCase()}; sidste stik til ${state.session.players[winner].name}`;
+    }
+
+    updateSession(copy => {
+      copy.currentRound.events.push(event);
+
+      const moreOptions = allowedFollowUps(copy.currentRound);
+      if (type === RESULT_TYPES.LAST_TRICK || moreOptions.length === 0) {
+        const hasNoloNow = copy.currentRound.events.some(item => item.type === RESULT_TYPES.NOLO);
+        copy.currentRound.state = hasNoloNow ? 'round_closed' : 'scoring';
+        copy.currentRound.lastAction = hasNoloNow
+          ? `${lastAction}; runden afsluttes uden optælling`
+          : `${lastAction}; går videre til optælling`;
+      } else {
+        copy.currentRound.lastAction = `${lastAction}; registrér evt. samtidig hændelse`;
+      }
+    });
+  }
+
+  function applyCountScoring() {
+    if (!canApplyScore()) return;
+    updateSession(copy => {
+      copy.currentRound.active.forEach(id => {
+        copy.currentRound.counts[id] = Number(document.getElementById(`countPlayer${id}`).value || 0);
+      });
+      copy.currentRound.flags.scoringApplied = true;
+      copy.currentRound.state = 'round_closed';
+      const total = getStoredCountTotal(copy.currentRound);
+      copy.currentRound.lastAction = total === 78 ? 'Optælling anvendt' : `Optælling anvendt med advarsel (${total})`;
+    });
+  }
+
+  function closeRound() {
+    if (!canCloseRound()) return;
+    updateSession(copy => {
+      copy.currentRound.note = dom.roundNote.value;
+      visiblePlayerIds(copy).forEach(i => {
+        copy.players[i].balance += copy.currentRound.playerDeltas[i];
+      });
+      copy.cups.pagat += copy.currentRound.cupDeltas.pagat;
+      copy.cups.konge += copy.currentRound.cupDeltas.konge;
+      copy.history.unshift({
+        round: copy.round,
+        playerCount: copy.playerCount,
+        active: [...copy.currentRound.active],
+        sittingOut: copy.currentRound.sittingOut,
+        dealer: copy.dealer,
+        events: clone(copy.currentRound.events),
+        playerDeltas: [...copy.currentRound.playerDeltas],
+        cupDeltas: { ...copy.currentRound.cupDeltas },
+        counts: [...copy.currentRound.counts],
+        countWarning: copy.currentRound.countWarning,
+        announcementsLog: [...copy.currentRound.announcementsLog],
+        note: copy.currentRound.note,
+      });
+      copy.round += 1;
+      copy.dealer = (copy.dealer + 1) % copy.playerCount;
+      copy.currentRound = createRound(copy.playerCount, copy.dealer);
+    });
+    dom.roundNote.value = '';
+    renderDefaultCounts();
+  }
+
+  function undo() {
+    if (!state.undoStack.length) return;
+    state.session = state.undoStack.pop();
+    render();
+  }
+
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(state.session, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tarok-session.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function renderDefaultCounts() {
+    [0,1,2,3].forEach(i => {
+      const input = document.getElementById(`countPlayer${i}`);
+      if (!input) return;
+      input.value = state.session.currentRound.active.includes(i) ? 26 : 0;
+    });
+  }
+
+  function renderPhaseStrip() {
+    dom.phaseStrip.innerHTML = '';
+    PHASES.forEach((phase, index) => {
+      const item = document.createElement('div');
+      item.className = `phase ${state.session.currentRound.state === phase.key ? 'active' : ''}`;
+      item.innerHTML = `<div>${index + 1}. ${phase.label}</div><div class="small">${phase.key}</div>`;
+      dom.phaseStrip.appendChild(item);
+    });
+  }
+
+  function renderPlayerCard(playerId) {
+    const visible = playerId < state.session.playerCount;
+    const player = state.session.players[playerId];
+    const round = state.session.currentRound;
+    const node = document.createElement('div');
+    if (!visible) {
+      node.style.display = 'none';
+      return node;
+    }
+    const isActive = round.active.includes(playerId);
+    const isDealer = state.session.dealer === playerId;
+    const isSittingOut = round.sittingOut === playerId;
+    const delta = round.playerDeltas[playerId];
+    node.className = `player-card ${isActive ? 'active' : 'inactive'}`;
+    node.innerHTML = `
+      <div class="player-top">
+        <div><h3>${player.name}</h3></div>
+        <div class="badges">
+          ${isDealer ? '<span class="badge dealer">Giver</span>' : ''}
+          ${isActive ? '<span class="badge active">Aktiv</span>' : ''}
+          ${isSittingOut ? '<span class="badge">Over</span>' : ''}
+        </div>
+      </div>
+      <div class="tarot-face"><div>${svgIcon('fool')}</div><div class="small">Rider–Waite stemning</div></div>
+      <div class="saldo-row"><div><div class="small">Saldo</div><div class="saldo">${player.balance}</div></div><div class="delta ${delta > 0 ? 'good' : delta < 0 ? 'bad' : 'zero'}">${fmtDelta(delta)}</div></div>
+      ${isActive && round.state === 'scoring' ? '<div class="small">Optælling tastes i panelet til højre.</div>' : ''}
+    `;
+    return node;
+  }
+
+  function renderSeats() {
+    dom.seatTop.replaceChildren(renderPlayerCard(1));
+    dom.seatLeft.replaceChildren(renderPlayerCard(0));
+    dom.seatRight.replaceChildren(renderPlayerCard(2));
+    dom.seatBottom.replaceChildren(renderPlayerCard(3));
+  }
+
+  function fillActiveSelect(selectEl, { includePlaceholder = false, exclude = null, disableUsed = false } = {}) {
+    if (!selectEl) return;
+    const current = selectEl.value;
+    selectEl.innerHTML = '';
+    if (includePlaceholder) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Vælg aktiv spiller';
+      selectEl.appendChild(option);
+    }
+    state.session.currentRound.active.forEach(id => {
+      if (id === exclude) return;
+      const option = document.createElement('option');
+      option.value = id;
+      const used = disableUsed && state.session.currentRound.announcementsMade[id];
+      option.textContent = used ? `${state.session.players[id].name} (meldt)` : state.session.players[id].name;
+      option.disabled = used;
+      selectEl.appendChild(option);
+    });
+    if ([...selectEl.options].some(o => o.value === current && !o.disabled)) selectEl.value = current;
+    else if (includePlaceholder) selectEl.value = '';
+    else {
+      const first = [...selectEl.options].find(o => !o.disabled);
+      selectEl.value = first ? first.value : '';
+    }
+  }
+
+  function renderAnnouncementControls() {
+    fillActiveSelect(dom.announcePlayer, { disableUsed: true });
+    const raw = dom.announcePlayer.value;
+    const playerId = raw === '' ? NaN : Number(raw);
+    const amount = Number(dom.announceAmount.value || 0);
+    const allowed = state.session.currentRound.state === 'announcements'
+      && Number.isFinite(playerId)
+      && amount >= 0
+      && amount % 5 === 0
+      && !state.session.currentRound.announcementsMade[playerId];
+    dom.applyAnnouncementBtn.disabled = !allowed;
+  }
+
+  function renderCountInputs() {
+    [0,1,2,3].forEach(i => {
+      const label = document.querySelector(`label[for='countPlayer${i}']`);
+      if (label) label.textContent = state.session.players[i].name;
+      const wrap = document.getElementById(`countWrap${i}`);
+      const input = document.getElementById(`countPlayer${i}`);
+      const visible = i < state.session.playerCount;
+      const active = state.session.currentRound.active.includes(i);
+      wrap.style.display = visible && active ? 'grid' : 'none';
+      input.disabled = !(state.session.currentRound.state === 'scoring' && active);
+      if (!active) input.value = 0;
+    });
+  }
+
+  function renderResultPanelText() {
+    if (state.session.currentRound.state !== 'trick_play') {
+      dom.resultPanel.style.display = 'none';
+      dom.resultPanel.innerHTML = '';
+      return;
+    }
+    const actorRaw = document.getElementById('resultPlayer')?.value ?? '';
+    const winnerRaw = document.getElementById('resultWinner')?.value ?? '';
+    const mode = dom.specialGrid.dataset.mode || '';
+    const actorText = actorRaw === '' ? 'ingen valgt' : state.session.players[Number(actorRaw)].name;
+    const winnerText = winnerRaw === '' ? 'ingen valgt' : state.session.players[Number(winnerRaw)].name;
+    const statuses = computeEventStatuses(state.session.currentRound);
+    const list = statuses.length
+      ? `<ul style="margin:8px 0 0 18px;padding:0;">${statuses.map(status => `<li>${eventSentence(state.session.players, status)}</li>`).join('')}</ul>`
+      : '<div class="small" style="margin-top:8px;">Ingen hændelser registreret endnu.</div>';
+    dom.resultPanel.style.display = 'block';
+    dom.resultPanel.innerHTML = mode === 'down'
+      ? `Vælg først hvem der gik ned, og derefter hvem der faktisk tog sidste stik. Nu: aktør = <strong>${actorText}</strong>, sidste stik = <strong>${winnerText}</strong>.${list}`
+      : `Vælg en aktiv spiller. Kun disse samtidige kombinationer er tilladt: ultimo + konge ned, eller nolo + pagat/konge ned. Nu valgt: <strong>${actorText}</strong>.${list}`;
+  }
+
+  function renderSpecialGrid() {
+    if (state.session.currentRound.state !== 'trick_play') {
+      dom.specialGrid.innerHTML = '';
+      dom.resultPanel.style.display = 'none';
+      return;
+    }
+
+    const previousPlayer = document.getElementById('resultPlayer')?.value ?? '';
+    const previousWinner = document.getElementById('resultWinner')?.value ?? '';
+    const previousMode = dom.specialGrid.dataset.mode || '';
+
+    dom.specialGrid.innerHTML = `
+      <select id="resultPlayer"></select>
+      <button id="chooseNoloBtn">${svgIcon('fool')} Nolo</button>
+      <button id="choosePagatBtn">${svgIcon('magician')} Pagat ultimo</button>
+      <button id="chooseKongeBtn">${svgIcon('king')} Konge ultimo</button>
+      <button id="choosePagatDownBtn">${svgIcon('magician')} Pagat ned</button>
+      <button id="chooseKingDownBtn">${svgIcon('king')} Konge ned</button>
+      <button id="chooseLastTrickBtn">${svgIcon('sun')} Sidste stik</button>
+      <select id="resultWinner" style="display:none;"></select>
+      <div class="small" id="winnerHint" style="display:none;color:#d9e0ea;">Ved ned: vælg hvem der faktisk tog sidste stik.</div>
+    `;
+
+    dom.specialGrid.dataset.mode = previousMode;
+
+    const resultPlayer = document.getElementById('resultPlayer');
+    const resultWinner = document.getElementById('resultWinner');
+    const winnerHint = document.getElementById('winnerHint');
+
+    fillActiveSelect(resultPlayer, { includePlaceholder: true });
+    if ([...resultPlayer.options].some(o => o.value === previousPlayer)) {
+      resultPlayer.value = previousPlayer;
+    }
+
+    const btnNolo = document.getElementById('chooseNoloBtn');
+    const btnPagat = document.getElementById('choosePagatBtn');
+    const btnKonge = document.getElementById('chooseKongeBtn');
+    const btnPagatDown = document.getElementById('choosePagatDownBtn');
+    const btnKingDown = document.getElementById('chooseKingDownBtn');
+    const btnLast = document.getElementById('chooseLastTrickBtn');
+
+    const refreshUi = () => {
+      const raw = resultPlayer.value;
+      const actor = raw === '' ? null : Number(raw);
+      const needsWinner = dom.specialGrid.dataset.mode === 'down' && Number.isFinite(actor);
+
+      resultWinner.style.display = needsWinner ? 'block' : 'none';
+      winnerHint.style.display = needsWinner ? 'block' : 'none';
+      fillActiveSelect(resultWinner, { includePlaceholder: true, exclude: actor });
+      if (needsWinner && [...resultWinner.options].some(o => o.value === previousWinner)) {
+        resultWinner.value = previousWinner;
+      }
+
+      btnNolo.disabled = !canAddEvent(RESULT_TYPES.NOLO, state.session.currentRound, actor);
+      btnPagat.disabled = !canAddEvent(RESULT_TYPES.PAGAT_ULTIMO, state.session.currentRound, actor);
+      btnKonge.disabled = !canAddEvent(RESULT_TYPES.KING_ULTIMO, state.session.currentRound, actor);
+      btnPagatDown.disabled = !canAddEvent(RESULT_TYPES.PAGAT_DOWN, state.session.currentRound, actor);
+      btnKingDown.disabled = !canAddEvent(RESULT_TYPES.KING_DOWN, state.session.currentRound, actor);
+      btnLast.disabled = !canAddEvent(RESULT_TYPES.LAST_TRICK, state.session.currentRound, actor);
+
+      renderResultPanelText();
+    };
+
+    resultPlayer.onchange = refreshUi;
+    resultWinner.onchange = renderResultPanelText;
+
+    btnNolo.onclick = () => { dom.specialGrid.dataset.mode = ''; refreshUi(); chooseEvent(RESULT_TYPES.NOLO); };
+    btnPagat.onclick = () => { dom.specialGrid.dataset.mode = ''; refreshUi(); chooseEvent(RESULT_TYPES.PAGAT_ULTIMO); };
+    btnKonge.onclick = () => { dom.specialGrid.dataset.mode = ''; refreshUi(); chooseEvent(RESULT_TYPES.KING_ULTIMO); };
+    btnPagatDown.onclick = () => { dom.specialGrid.dataset.mode = 'down'; refreshUi(); chooseEvent(RESULT_TYPES.PAGAT_DOWN); };
+    btnKingDown.onclick = () => { dom.specialGrid.dataset.mode = 'down'; refreshUi(); chooseEvent(RESULT_TYPES.KING_DOWN); };
+    btnLast.onclick = () => { dom.specialGrid.dataset.mode = ''; refreshUi(); chooseEvent(RESULT_TYPES.LAST_TRICK); };
+
+    refreshUi();
+  }
+
+  function renderHistory() {
+    dom.historyList.innerHTML = '';
+    if (!state.session.history.length) {
+      dom.historyList.innerHTML = '<div class="small">Ingen afsluttede omgange endnu.</div>';
+      return;
+    }
+    state.session.history.forEach(item => {
+      const visibleIds = Array.from({ length: item.playerCount }, (_, i) => i);
+      const statuses = computeEventStatuses(item);
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+          <strong>Omgang ${item.round}</strong>
+          <span>${statuses.map(status => svgIcon(tarotSymbolName(status.event.type))).join('')}</span>
+        </div>
+        <div class="history-line">Giver: ${state.session.players[item.dealer].name}</div>
+        <div class="history-line">Aktive: ${item.active.map(id => state.session.players[id].name).join(', ')}</div>
+        ${item.sittingOut != null ? `<div class="history-line">Over: ${state.session.players[item.sittingOut].name}</div>` : ''}
+        ${item.announcementsLog.length ? `<div class="history-line">Meldinger: ${item.announcementsLog.map(a => `${state.session.players[a.player].name} ${a.amount}`).join(', ')}</div>` : ''}
+        ${statuses.length ? `<div class="history-line">Hændelser:</div><ul style="margin:0 0 0 18px;padding:0;">${statuses.map(status => `<li>${eventSentence(state.session.players, status)}</li>`).join('')}</ul>` : ''}
+        ${item.counts && item.counts.some(v => v != null) ? `<div class="history-line">Optælling: ${item.active.map(id => `${state.session.players[id].name} ${item.counts[id]}`).join(', ')}</div>` : ''}
+        ${item.countWarning ? `<div class="history-line bad">${item.countWarning}</div>` : ''}
+        <div class="history-line">Kopper: pagat ${fmtDelta(item.cupDeltas.pagat)}, konge ${fmtDelta(item.cupDeltas.konge)}</div>
+        <div class="history-deltas">${visibleIds.map(i => `<div class="history-delta"><span>${state.session.players[i].name}</span><span class="${item.playerDeltas[i] > 0 ? 'good' : item.playerDeltas[i] < 0 ? 'bad' : ''}">${fmtDelta(item.playerDeltas[i])}</span></div>`).join('')}</div>
+        ${item.note ? `<div class="history-line"><em>${item.note}</em></div>` : ''}
+      `;
+      dom.historyList.appendChild(div);
+    });
+  }
+
+  function renderNamesAndSettings() {
+    visiblePlayerIds().forEach(i => {
+      const el = document.getElementById(`namePlayer${i}`);
+      if (el && document.activeElement !== el) el.value = state.session.players[i].name;
+    });
+    dom.nameRowBottom.style.display = state.session.playerCount >= 3 ? 'grid' : 'none';
+    document.getElementById('namePlayer2').style.display = state.session.playerCount >= 3 ? 'block' : 'none';
+    document.getElementById('namePlayer3').style.display = state.session.playerCount === 4 ? 'block' : 'none';
+    dom.playerCountSelect.value = String(state.session.playerCount);
+    if (document.activeElement !== dom.sessionTitle) dom.sessionTitle.value = state.session.sessionName;
+  }
+
+  function liveCountWarningText() {
+    if (state.session.currentRound.state !== 'scoring') return '';
+    const total = getInputCountTotal();
+    return total !== 78 ? `Advarsel: summen er ${total}, ikke 78. Du kan stadig godkende.` : '';
+  }
+
+  function renderSummary() {
+    dom.iconMagicianCup.innerHTML = svgIcon('magician');
+    dom.iconKingCup.innerHTML = svgIcon('king');
+    dom.sessionName.textContent = state.session.sessionName;
+    dom.headerState.textContent = `Omgang ${state.session.round} · ${phaseLabel(state.session.currentRound.state)}`;
+    dom.centerPhase.textContent = phaseLabel(state.session.currentRound.state);
+    const sittingOutText = state.session.currentRound.sittingOut == null ? 'Ingen' : state.session.players[state.session.currentRound.sittingOut].name;
+    dom.centerMeta.innerHTML = `Giver: ${state.session.players[state.session.dealer].name}<br>Aktive: ${state.session.currentRound.active.map(id => state.session.players[id].name).join(', ')}<br>Over: ${sittingOutText}`;
+    dom.pagatValue.textContent = currentCupValue('pagat');
+    dom.kongeValue.textContent = currentCupValue('konge');
+    dom.roundBalance.textContent = roundBalanceOk() ? 'Balancerer' : 'Ubalance';
+    dom.roundBalance.className = roundBalanceOk() ? 'good' : 'bad';
+
+    if (state.session.currentRound.state === 'scoring') {
+      const total = getInputCountTotal();
+      dom.countTotal.textContent = total;
+      dom.countTotal.className = total !== 78 ? 'bad' : 'good';
+    } else if (state.session.currentRound.flags.scoringApplied) {
+      const total = getStoredCountTotal();
+      dom.countTotal.textContent = total;
+      dom.countTotal.className = total !== 78 ? 'bad' : 'good';
+    } else {
+      dom.countTotal.textContent = '–';
+      dom.countTotal.className = '';
+    }
+
+    const warning = liveCountWarningText() || state.session.currentRound.countWarning;
+    dom.countWarning.textContent = warning;
+    dom.countWarning.style.display = warning ? 'block' : 'none';
+    dom.countWarning.className = warning ? 'warning-box alert' : 'warning-box';
+
+    dom.totalWealth.textContent = totalWealth();
+    dom.lastAction.textContent = state.session.currentRound.lastAction;
+  }
+
+  function renderVisibility() {
+    const s = state.session.currentRound.state;
+    dom.startActions.style.display = s === 'round_start' ? 'grid' : 'none';
+    dom.announcementActions.style.display = s === 'announcements' ? 'grid' : 'none';
+    dom.playActions.style.display = s === 'trick_play' ? 'grid' : 'none';
+    dom.resultHeading.style.display = s === 'trick_play' ? 'block' : 'none';
+    dom.resultHeading.textContent = 'Registrer hændelser';
+    dom.announcementSection.style.display = s === 'announcements' ? 'grid' : 'none';
+    dom.scoreSection.style.display = s === 'scoring' ? 'grid' : 'none';
+    dom.closeRoundBtn.style.display = s === 'round_closed' ? 'block' : 'none';
+    dom.goScoringBtn.textContent = hasEvent(RESULT_TYPES.NOLO) ? 'Afslut nolo-runde' : 'Til optælling';
+  }
+
+  function renderDisabledStates() {
+    dom.undoBtn.disabled = !state.undoStack.length;
+    dom.dealerFeeBtn.disabled = !(state.session.currentRound.state === 'round_start' && !state.session.currentRound.flags.dealerFeeDone);
+    dom.goAnnouncementsBtn.disabled = !canGoToAnnouncements();
+    dom.goPlayBtn.disabled = !canGoToPlay();
+    dom.goScoringBtn.disabled = !canAdvanceFromPlay();
+    dom.applyScoreBtn.disabled = !canApplyScore();
+    dom.closeRoundBtn.disabled = !canCloseRound();
+  }
+
+  function runSmokeChecks() {
+    console.assert(typeof clone === 'function', 'clone should be defined');
+    const sample = { a: 1, nested: { b: 2 } };
+    const copied = clone(sample);
+    copied.nested.b = 9;
+    console.assert(sample.nested.b === 2, 'clone should deep copy nested objects');
+
+    const round3 = createRound(3, 0);
+    console.assert(round3.active.length === 3, '3-player round should have 3 active players');
+    console.assert(round3.sittingOut === null, '3-player round should not have a sitting-out player');
+
+    const round4 = createRound(4, 0);
+    console.assert(round4.active.length === 3, '4-player round should still have 3 active players');
+    console.assert(round4.sittingOut === 2, '4-player round with dealer 0 should have player 2 sitting out');
+  }
+
+  function render() {
+    renderSummary();
+    renderVisibility();
+    renderDisabledStates();
+    renderPhaseStrip();
+    renderSeats();
+    renderAnnouncementControls();
+    renderCountInputs();
+    renderSpecialGrid();
+    renderHistory();
+    renderNamesAndSettings();
+  }
+
+  dom.dealerFeeBtn.onclick = recordDealerFee;
+  dom.goAnnouncementsBtn.onclick = () => setPhase('announcements');
+  dom.goPlayBtn.onclick = () => setPhase('trick_play');
+  dom.goScoringBtn.onclick = advanceFromPlay;
+  dom.applyAnnouncementBtn.onclick = applyAnnouncement;
+  dom.applyNamesBtn.onclick = applyNames;
+  dom.applySettingsBtn.onclick = applySessionSettings;
+  dom.applyScoreBtn.onclick = applyCountScoring;
+  dom.closeRoundBtn.onclick = closeRound;
+  dom.undoBtn.onclick = undo;
+  dom.exportBtn.onclick = exportJson;
+  dom.announcePlayer.addEventListener('change', render);
+  dom.announceAmount.addEventListener('input', render);
+  [0,1,2,3].forEach(i => document.getElementById(`countPlayer${i}`).addEventListener('input', render));
+
+  renderDefaultCounts();
+  runSmokeChecks();
+  render();
+})();
+
+</script>
+</body>
+</html>
