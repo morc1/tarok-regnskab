@@ -1237,38 +1237,58 @@
     console.assert(getKingLostLimit({ ultimo: null, nedEvents: [{ type: 'king', player: 1 }] }) === 3, 'king lost limit should be 3 with king down');
   }
 
+  function getPlayActionState(session = state.session) {
+    const activeOptions = session.currentRound.active
+      .map(id => `<option value="${id}">${session.players[id].name}</option>`)
+      .join('');
+    const pagatDone = session.currentRound.pagatEvent;
+    const kingEvents = session.currentRound.kingEvents || [];
+    const kingLostLimit = getKingLostLimit();
+    const kingLostRemaining = Math.max(0, kingLostLimit - kingEvents.length);
+    return { activeOptions, pagatDone, kingEvents, kingLostLimit, kingLostRemaining };
+  }
+
+  function renderPagatActionBlock(playState) {
+    if (playState.pagatDone) {
+      return `<div class="small" style="color:#d9e0ea;grid-column:1/-1;">Pagat registreret: ${resultSentence(state.session.players, playState.pagatDone)}</div>`;
+    }
+    return `<select id="pagatEventPlayer" style="grid-column:1/-1;">${playState.activeOptions}</select>
+             <button class="btn-dark" id="pagatHomeBtn">Pagaten kom hjem</button>
+             <button class="btn-dark" id="pagatLostBtn">Pagaten gik</button>`;
+  }
+
+  function renderKingLostActionBlock(playState) {
+    return `
+      <div class="small" style="color:#d9e0ea;grid-column:1/-1;margin-top:6px;">Konge gik (${playState.kingEvents.length}/${playState.kingLostLimit})</div>
+      <select id="kingEventPlayer" style="grid-column:1/-1;" ${playState.kingLostRemaining === 0 ? 'disabled' : ''}>${playState.activeOptions}</select>
+      <button class="btn-dark" id="kingLostBtn" ${playState.kingLostRemaining === 0 ? 'disabled' : ''}>Registrér konge gik</button>
+      <div class="small" style="color:#d9e0ea;grid-column:1/-1;">Tilbage: ${playState.kingLostRemaining}</div>
+      ${playState.kingEvents.length ? `<div class="small" style="color:#d9e0ea;grid-column:1/-1;">${playState.kingEvents.map(ev => resultSentence(state.session.players, ev)).join(' ')}</div>` : ''}
+    `;
+  }
+
+  function bindPlayActionHandlers(playState) {
+    if (!playState.pagatDone) {
+      document.getElementById('pagatHomeBtn').onclick = () => registerPagatEvent('home');
+      document.getElementById('pagatLostBtn').onclick = () => registerPagatEvent('lost');
+    }
+    document.getElementById('kingLostBtn').onclick = registerKingLostEvent;
+  }
+
   function renderPlayActions() {
     if (state.session.currentRound.state !== 'trick_play') {
       dom.playActions.innerHTML = '';
       return;
     }
-    const activeOptions = state.session.currentRound.active
-      .map(id => `<option value="${id}">${state.session.players[id].name}</option>`)
-      .join('');
-    const pagatDone = state.session.currentRound.pagatEvent;
-    const kingEvents = state.session.currentRound.kingEvents || [];
-    const kingLostLimit = getKingLostLimit();
-    const kingLostRemaining = Math.max(0, kingLostLimit - kingEvents.length);
+    const playState = getPlayActionState();
     dom.playActions.innerHTML = `
       <div class="actions-grid">
         <div class="small" style="color:#d9e0ea;grid-column:1/-1;">Begivenheder under spillet</div>
-        ${pagatDone
-          ? `<div class="small" style="color:#d9e0ea;grid-column:1/-1;">Pagat registreret: ${resultSentence(state.session.players, pagatDone)}</div>`
-          : `<select id="pagatEventPlayer" style="grid-column:1/-1;">${activeOptions}</select>
-             <button class="btn-dark" id="pagatHomeBtn">Pagaten kom hjem</button>
-             <button class="btn-dark" id="pagatLostBtn">Pagaten gik</button>`}
-        <div class="small" style="color:#d9e0ea;grid-column:1/-1;margin-top:6px;">Konge gik (${kingEvents.length}/${kingLostLimit})</div>
-        <select id="kingEventPlayer" style="grid-column:1/-1;" ${kingLostRemaining === 0 ? 'disabled' : ''}>${activeOptions}</select>
-        <button class="btn-dark" id="kingLostBtn" ${kingLostRemaining === 0 ? 'disabled' : ''}>Registrér konge gik</button>
-        <div class="small" style="color:#d9e0ea;grid-column:1/-1;">Tilbage: ${kingLostRemaining}</div>
-        ${kingEvents.length ? `<div class="small" style="color:#d9e0ea;grid-column:1/-1;">${kingEvents.map(ev => resultSentence(state.session.players, ev)).join(' ')}</div>` : ''}
+        ${renderPagatActionBlock(playState)}
+        ${renderKingLostActionBlock(playState)}
       </div>
     `;
-    if (!pagatDone) {
-      document.getElementById('pagatHomeBtn').onclick = () => registerPagatEvent('home');
-      document.getElementById('pagatLostBtn').onclick = () => registerPagatEvent('lost');
-    }
-    document.getElementById('kingLostBtn').onclick = registerKingLostEvent;
+    bindPlayActionHandlers(playState);
   }
 
   function render() {
