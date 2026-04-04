@@ -624,54 +624,66 @@
     });
   }
 
+  function getUltimoConfig(ultimo) {
+    if (ultimo === 'pagat') return { amount: 45, cupName: 'pagat', resultType: RESULT_TYPES.PAGAT_ULTIMO };
+    return { amount: 40, cupName: 'konge', resultType: RESULT_TYPES.KING_ULTIMO };
+  }
+
+  function applyWizardNolo(copy, ws) {
+    applySymmetricTransfer(copy, ws.nolo, 25);
+    copy.currentRound.result = { type: RESULT_TYPES.NOLO, player: ws.nolo };
+  }
+
+  function applyWizardLastTrick(copy, ws) {
+    if (ws.lastTrickWinner === null) return;
+
+    if (ws.ultimo !== null) {
+      const { amount, cupName, resultType } = getUltimoConfig(ws.ultimo);
+      applySymmetricTransfer(copy, ws.lastTrickWinner, amount);
+      const cv = copy.cups[cupName] + copy.currentRound.cupDeltas[cupName];
+      copy.currentRound.playerDeltas[ws.lastTrickWinner] += cv;
+      copy.currentRound.cupDeltas[cupName] -= cv;
+      copy.currentRound.result = { type: resultType, player: ws.lastTrickWinner, includesLastTrick: true };
+      return;
+    }
+
+    applySymmetricTransfer(copy, ws.lastTrickWinner, 20);
+    copy.currentRound.result = { type: RESULT_TYPES.LAST_TRICK, player: ws.lastTrickWinner, includesLastTrick: true };
+  }
+
+  function applyWizardNedEvent(copy, ev, lastTrickWinner) {
+    const amount = ev.type === 'pagat' ? 45 : 40;
+    const cupName = ev.type === 'pagat' ? 'pagat' : 'konge';
+    const nedType = ev.type === 'pagat' ? RESULT_TYPES.PAGAT_DOWN : RESULT_TYPES.KING_DOWN;
+    copy.currentRound.active.forEach(id => {
+      copy.currentRound.playerDeltas[id] += id === ev.player ? -(amount * 2) : amount;
+    });
+    const cv = copy.cups[cupName] + copy.currentRound.cupDeltas[cupName];
+    copy.currentRound.playerDeltas[ev.player] -= cv;
+    copy.currentRound.cupDeltas[cupName] += cv;
+    copy.currentRound.nedEvents.push({ type: nedType, player: ev.player, lastTrickWinner });
+  }
+
+  function applyWizardNedEvents(copy, ws) {
+    ws.nedEvents.forEach(ev => applyWizardNedEvent(copy, ev, ws.lastTrickWinner));
+  }
+
+  function finalizeWizardResult(copy, hasNolo) {
+    copy.currentRound.flags.resultChosen = true;
+    copy.currentRound.state = hasNolo ? 'round_closed' : 'scoring';
+    copy.currentRound.lastAction = 'Resultat registreret';
+  }
+
   function applyWizard() {
     if (!wizardState) return;
     const ws = wizardState;
     const hasNolo = ws.nolo !== null;
-    const hasUltimo = !hasNolo && ws.ultimo !== null;
 
     updateSession(copy => {
-      // Nolo-betaling: 25 fra hver til nolospilleren
-      if (hasNolo) {
-        applySymmetricTransfer(copy, ws.nolo, 25);
-        copy.currentRound.result = { type: RESULT_TYPES.NOLO, player: ws.nolo };
-      }
-
-      // Sidste stik / último (ikke ved nolo)
-      if (!hasNolo && ws.lastTrickWinner !== null) {
-        if (hasUltimo) {
-          const amount = ws.ultimo === 'pagat' ? 45 : 40;
-          const cupName = ws.ultimo === 'pagat' ? 'pagat' : 'konge';
-          const rType = ws.ultimo === 'pagat' ? RESULT_TYPES.PAGAT_ULTIMO : RESULT_TYPES.KING_ULTIMO;
-          applySymmetricTransfer(copy, ws.lastTrickWinner, amount);
-          const cv = copy.cups[cupName] + copy.currentRound.cupDeltas[cupName];
-          copy.currentRound.playerDeltas[ws.lastTrickWinner] += cv;
-          copy.currentRound.cupDeltas[cupName] -= cv;
-          copy.currentRound.result = { type: rType, player: ws.lastTrickWinner, includesLastTrick: true };
-        } else {
-          // Kun sidste stik — 20 fra hver til stiksvinder
-          applySymmetricTransfer(copy, ws.lastTrickWinner, 20);
-          copy.currentRound.result = { type: RESULT_TYPES.LAST_TRICK, player: ws.lastTrickWinner, includesLastTrick: true };
-        }
-      }
-
-      // Ned-begivenheder: aktør betaler 45/40 til alle + fordobler kop
-      ws.nedEvents.forEach(ev => {
-        const amount = ev.type === 'pagat' ? 45 : 40;
-        const cupName = ev.type === 'pagat' ? 'pagat' : 'konge';
-        const nedType = ev.type === 'pagat' ? RESULT_TYPES.PAGAT_DOWN : RESULT_TYPES.KING_DOWN;
-        copy.currentRound.active.forEach(id => {
-          copy.currentRound.playerDeltas[id] += id === ev.player ? -(amount * 2) : amount;
-        });
-        const cv = copy.cups[cupName] + copy.currentRound.cupDeltas[cupName];
-        copy.currentRound.playerDeltas[ev.player] -= cv;
-        copy.currentRound.cupDeltas[cupName] += cv;
-        copy.currentRound.nedEvents.push({ type: nedType, player: ev.player, lastTrickWinner: ws.lastTrickWinner });
-      });
-
-      copy.currentRound.flags.resultChosen = true;
-      copy.currentRound.state = hasNolo ? 'round_closed' : 'scoring';
-      copy.currentRound.lastAction = 'Resultat registreret';
+      if (hasNolo) applyWizardNolo(copy, ws);
+      else applyWizardLastTrick(copy, ws);
+      applyWizardNedEvents(copy, ws);
+      finalizeWizardResult(copy, hasNolo);
     });
 
     wizardState = null;
