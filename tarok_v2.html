@@ -1160,22 +1160,41 @@
     if (document.activeElement !== dom.sessionTitle) dom.sessionTitle.value = state.session.sessionName;
   }
 
-  function renderSummary() {
+  function getCenterMetaHtml(session = state.session) {
+    const sittingOutText = session.currentRound.sittingOut == null
+      ? 'Ingen'
+      : session.players[session.currentRound.sittingOut].name;
+    return `Giver: ${session.players[session.dealer].name}<br>Aktive: ${session.currentRound.active.map(id => session.players[id].name).join(', ')}<br>Over: ${sittingOutText}`;
+  }
+
+  function renderHeaderSummary() {
+    const phaseText = phaseLabel(state.session.currentRound.state);
     dom.iconMagicianCup.innerHTML = svgIcon('magician');
     dom.iconKingCup.innerHTML = svgIcon('king');
     dom.sessionName.textContent = state.session.sessionName;
-    dom.headerState.textContent = `Omgang ${state.session.round} · ${phaseLabel(state.session.currentRound.state)}`;
-    dom.centerPhase.textContent = phaseLabel(state.session.currentRound.state);
-    const sittingOutText = state.session.currentRound.sittingOut == null ? 'Ingen' : state.session.players[state.session.currentRound.sittingOut].name;
-    dom.centerMeta.innerHTML = `Giver: ${state.session.players[state.session.dealer].name}<br>Aktive: ${state.session.currentRound.active.map(id => state.session.players[id].name).join(', ')}<br>Over: ${sittingOutText}`;
+    dom.headerState.textContent = `Omgang ${state.session.round} · ${phaseText}`;
+    dom.centerPhase.textContent = phaseText;
+    dom.centerMeta.innerHTML = getCenterMetaHtml();
+  }
+
+  function renderCupSummary() {
     dom.pagatValue.textContent = currentCupValue('pagat');
     dom.kongeValue.textContent = currentCupValue('konge');
+  }
+
+  function renderRoundStatusSummary() {
     dom.roundBalance.textContent = roundBalanceOk() ? 'Balancerer' : 'Ubalance';
     dom.roundBalance.className = roundBalanceOk() ? 'good' : 'bad';
     dom.countTotal.textContent = state.session.currentRound.state === 'scoring' ? sumActiveCounts() : '–';
     dom.countTotal.className = '';
     dom.totalWealth.textContent = totalWealth();
     dom.lastAction.textContent = state.session.currentRound.lastAction;
+  }
+
+  function renderSummary() {
+    renderHeaderSummary();
+    renderCupSummary();
+    renderRoundStatusSummary();
   }
 
   function renderVisibility() {
