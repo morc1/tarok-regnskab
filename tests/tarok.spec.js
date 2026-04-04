@@ -343,3 +343,99 @@ test('name changes work in 3-player setup', async ({ page }) => {
   await expect(page.locator('body')).toContainText('Carl');
   await expect(page.locator('#lastAction')).toContainText('Spillernavne opdateret');
 });
+
+test('undo dealer fee restores initial cup values and action text', async ({ page }) => {
+  await openApp(page);
+
+  await expect(page.locator('#pagatValue')).toHaveText('0');
+  await expect(page.locator('#kongeValue')).toHaveText('0');
+  await page.locator('#dealerFeeBtn').click();
+  await expect(page.locator('#pagatValue')).toHaveText('80');
+  await expect(page.locator('#kongeValue')).toHaveText('80');
+
+  await page.locator('#undoBtn').click();
+
+  await expect(page.locator('#pagatValue')).toHaveText('0');
+  await expect(page.locator('#kongeValue')).toHaveText('0');
+  await expect(page.locator('#lastAction')).toContainText('Ny omgang oprettet');
+});
+
+test('undo name change restores previous player names', async ({ page }) => {
+  await openApp(page);
+
+  await expect(page.locator('#namePlayer0')).toHaveValue('Anna');
+  await page.locator('#namePlayer0').fill('Asta');
+  await page.locator('#applyNamesBtn').click();
+  await expect(page.locator('#namePlayer0')).toHaveValue('Asta');
+
+  await page.locator('#undoBtn').click();
+
+  await expect(page.locator('#namePlayer0')).toHaveValue('Anna');
+  await expect(page.locator('#lastAction')).toContainText('Ny omgang oprettet');
+});
+
+test('undo session change restores 4-player setup after switching to 3 players', async ({ page }) => {
+  await openApp(page);
+
+  await page.locator('#playerCountSelect').selectOption('3');
+  await page.locator('#applySettingsBtn').click();
+  await expect(page.locator('#namePlayer3')).toBeHidden();
+  await expect(page.locator('#centerMeta')).toContainText('Aktive: Anna, Bent, Clara');
+
+  await page.locator('#undoBtn').click();
+
+  await expect(page.locator('#namePlayer3')).toBeVisible();
+  await expect(page.locator('#centerMeta')).toContainText('Aktive: Anna, David, Bent');
+  await expect(page.locator('#lastAction')).toContainText('Ny omgang oprettet');
+});
+
+test('undo applied scoring returns from round closed to scoring with counts intact', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="no"]').check();
+  await page.locator('#wizNext').click();
+  await page.locator('#wizApply').click();
+
+  await page.locator('#countPlayer0').fill('26');
+  await page.locator('#countPlayer1').fill('26');
+  await page.locator('#countPlayer3').fill('26');
+  await page.locator('#applyScoreBtn').click();
+  await expect(page.locator('#closeRoundBtn')).toBeVisible();
+
+  await page.locator('#undoBtn').click();
+
+  await expect(page.locator('#scoreSection')).toBeVisible();
+  await expect(page.locator('#closeRoundBtn')).toBeHidden();
+  await expect(page.locator('#countPlayer0')).toHaveValue('26');
+  await expect(page.locator('#countPlayer1')).toHaveValue('26');
+  await expect(page.locator('#countPlayer3')).toHaveValue('26');
+  await expect(page.locator('#lastAction')).toContainText('Resultat registreret');
+});
+
+test('undo close round restores closed round and removes history entry rollback target', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="no"]').check();
+  await page.locator('#wizNext').click();
+  await page.locator('#wizApply').click();
+
+  await page.locator('#countPlayer0').fill('26');
+  await page.locator('#countPlayer1').fill('26');
+  await page.locator('#countPlayer3').fill('26');
+  await page.locator('#applyScoreBtn').click();
+  await page.locator('#closeRoundBtn').click();
+  await expect(page.locator('#historyList')).toContainText('Omgang 1');
+  await expect(page.locator('#headerState')).toContainText('Omgang 2');
+
+  await page.locator('#undoBtn').click();
+
+  await expect(page.locator('#historyList')).not.toContainText('Omgang 1');
+  await expect(page.locator('#headerState')).toContainText('Omgang 1');
+  await expect(page.locator('#closeRoundBtn')).toBeVisible();
+});
