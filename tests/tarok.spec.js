@@ -162,6 +162,17 @@ test('king lost can be registered four times when no king ultimo or king down ap
   await expect(page.locator('#kingLostBtn')).toBeDisabled();
 });
 
+test('play-phase king lost limit drops to three after king ultimo result is applied', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="king"]').check();
+  await page.locator('#wizNext').click();
+  await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 3 gange i denne omgang.');
+});
+
 test('king lost limit drops to three in wizard after king ultimo', async ({ page }) => {
   await startPlayPhase(page);
 
