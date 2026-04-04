@@ -265,3 +265,36 @@ test('pagat down round can be scored and closed into history', async ({ page }) 
   await expect(page.locator('#historyList')).toContainText('pagat ned');
   await expect(page.locator('#headerState')).toContainText('Omgang 2');
 });
+
+test('exported json can be imported back and restore session state', async ({ page }) => {
+  await openApp(page);
+
+  await page.locator('#sessionTitle').fill('Gem og indlæs test');
+  await page.locator('#applySettingsBtn').click();
+  await page.locator('#namePlayer0').fill('Alice');
+  await page.locator('#namePlayer1').fill('Bob');
+  await page.locator('#namePlayer2').fill('Clara');
+  await page.locator('#namePlayer3').fill('David');
+  await page.locator('#applyNamesBtn').click();
+  await page.locator('#dealerFeeBtn').click();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#exportBtn').click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+
+  await page.locator('#sessionTitle').fill('Muteret session');
+  await page.locator('#applySettingsBtn').click();
+  await expect(page.locator('#sessionName')).toHaveText('Muteret session');
+  await expect(page.locator('#lastAction')).toContainText('Session sat til 4 spillere');
+
+  page.on('dialog', dialog => dialog.accept());
+  await page.locator('#importFile').setInputFiles(downloadPath);
+
+  await expect(page.locator('#sessionName')).toHaveText('Gem og indlæs test');
+  await expect(page.locator('#namePlayer0')).toHaveValue('Alice');
+  await expect(page.locator('#namePlayer1')).toHaveValue('Bob');
+  await expect(page.locator('#namePlayer2')).toHaveValue('Clara');
+  await expect(page.locator('#namePlayer3')).toHaveValue('David');
+  await expect(page.locator('#lastAction')).toContainText('Kopper fyldt automatisk og giverbetaling bogført');
+});
