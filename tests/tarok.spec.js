@@ -317,3 +317,29 @@ test('exported json can be imported back and restore session state', async ({ pa
   await expect(page.locator('#namePlayer3')).toHaveValue('David');
   await expect(page.locator('#lastAction')).toContainText('Kopper fyldt automatisk og giverbetaling bogført');
 });
+
+test('name changes work in 3-player setup', async ({ page }) => {
+  await openApp(page);
+
+  await page.locator('#playerCountSelect').selectOption('3');
+  await page.locator('#applySettingsBtn').click();
+
+  await expect(page.locator('#namePlayer0')).toBeVisible();
+  await expect(page.locator('#namePlayer1')).toBeVisible();
+  await expect(page.locator('#namePlayer2')).toBeVisible();
+  await expect(page.locator('#namePlayer3')).toBeHidden();
+
+  await page.locator('#namePlayer0').fill('Asta');
+  await page.locator('#namePlayer1').fill('Bo');
+  await page.locator('#namePlayer2').fill('Carl');
+  await page.locator('#applyNamesBtn').click();
+
+  await expect(page.locator('#namePlayer0')).toHaveValue('Asta');
+  await expect(page.locator('#namePlayer1')).toHaveValue('Bo');
+  await expect(page.locator('#namePlayer2')).toHaveValue('Carl');
+  await expect(page.locator('#centerMeta')).toContainText('Aktive: Asta, Bo, Carl');
+  await expect(page.locator('body')).toContainText('Asta');
+  await expect(page.locator('body')).toContainText('Bo');
+  await expect(page.locator('body')).toContainText('Carl');
+  await expect(page.locator('#lastAction')).toContainText('Spillernavne opdateret');
+});
