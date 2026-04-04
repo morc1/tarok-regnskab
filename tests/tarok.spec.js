@@ -11,6 +11,30 @@ async function startPlayPhase(page) {
   await page.locator('#goPlayBtn').click();
 }
 
+async function goToLastTrickStep(page, winner = '0') {
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption(winner);
+  await page.locator('#wizNext').click();
+}
+
+async function chooseUltimoAndOpenNed(page, ultimo = 'no') {
+  await page.locator(`input[name="ultimoR"][value="${ultimo}"]`).check();
+  await page.locator('#wizNext').click();
+}
+
+async function addNedEvent(page, actor, type) {
+  await page.locator('#nedActor').selectOption(actor);
+  await page.locator(`input[name="nedTypeR"][value="${type}"]`).check();
+  await page.locator('#wizAddNed').click();
+}
+
+async function applyStandardScoring(page, counts = { 0: '26', 1: '26', 3: '26' }) {
+  for (const [playerId, value] of Object.entries(counts)) {
+    await page.locator(`#countPlayer${playerId}`).fill(value);
+  }
+  await page.locator('#applyScoreBtn').click();
+}
+
 test('nolo direct closes round without scoring', async ({ page }) => {
   await startPlayPhase(page);
 
@@ -32,9 +56,7 @@ test('nolo with king down stays balanced and closes directly', async ({ page }) 
   await page.locator('input[name="noloR"][value="yes"]').check();
   await page.locator('#noloPlayer').selectOption('0');
   await page.locator('#wizNext').click();
-  await page.locator('#nedActor').selectOption('1');
-  await page.locator('input[name="nedTypeR"][value="king"]').check();
-  await page.locator('#wizAddNed').click();
+  await addNedEvent(page, '1', 'king');
   await expect(page.locator('#specialGrid')).toContainText('Bent: Kong ned');
   await page.locator('#wizApply').click();
 
@@ -51,9 +73,7 @@ test('nolo with pagat down stays balanced and closes directly', async ({ page })
   await page.locator('input[name="noloR"][value="yes"]').check();
   await page.locator('#noloPlayer').selectOption('0');
   await page.locator('#wizNext').click();
-  await page.locator('#nedActor').selectOption('1');
-  await page.locator('input[name="nedTypeR"][value="pagat"]').check();
-  await page.locator('#wizAddNed').click();
+  await addNedEvent(page, '1', 'pagat');
   await expect(page.locator('#specialGrid')).toContainText('Bent: Pagat ned');
   await page.locator('#wizApply').click();
 
@@ -67,11 +87,8 @@ test('nolo with pagat down stays balanced and closes directly', async ({ page })
 test('round can end with normal last trick only and go to scoring', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="no"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'no');
   await expect(page.locator('#specialGrid')).toContainText('Ingen ned-begivenheder.');
   await page.locator('#wizApply').click();
 
@@ -86,14 +103,9 @@ test('round can end with normal last trick only and go to scoring', async ({ pag
 test('round can end with king down and go to scoring', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="no"]').check();
-  await page.locator('#wizNext').click();
-  await page.locator('#nedActor').selectOption('1');
-  await page.locator('input[name="nedTypeR"][value="king"]').check();
-  await page.locator('#wizAddNed').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'no');
+  await addNedEvent(page, '1', 'king');
   await expect(page.locator('#specialGrid')).toContainText('Bent: Kong ned');
   await page.locator('#wizApply').click();
 
@@ -106,11 +118,8 @@ test('round can end with king down and go to scoring', async ({ page }) => {
 test('round can end with king ultimo and go to scoring', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="king"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'king');
   await page.locator('#wizApply').click();
 
   await expect(page.locator('#scoreSection')).toBeVisible();
@@ -122,11 +131,8 @@ test('round can end with king ultimo and go to scoring', async ({ page }) => {
 test('round can end with pagat ultimo and go to scoring', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="pagat"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'pagat');
   await page.locator('#wizApply').click();
 
   await expect(page.locator('#scoreSection')).toBeVisible();
@@ -138,14 +144,9 @@ test('round can end with pagat ultimo and go to scoring', async ({ page }) => {
 test('round can end with pagat down and go to scoring', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="no"]').check();
-  await page.locator('#wizNext').click();
-  await page.locator('#nedActor').selectOption('1');
-  await page.locator('input[name="nedTypeR"][value="pagat"]').check();
-  await page.locator('#wizAddNed').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'no');
+  await addNedEvent(page, '1', 'pagat');
   await expect(page.locator('#specialGrid')).toContainText('Bent: Pagat ned');
   await page.locator('#wizApply').click();
 
@@ -158,11 +159,8 @@ test('round can end with pagat down and go to scoring', async ({ page }) => {
 test('pagat down option is not available after pagat ultimo', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="pagat"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'pagat');
 
   await expect(page.locator('input[name="nedTypeR"][value="pagat"]')).toHaveCount(0);
   await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til');
@@ -184,22 +182,16 @@ test('king lost can be registered four times when no king ultimo or king down ap
 test('play-phase king lost limit drops to three after king ultimo result is applied', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="king"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'king');
   await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 3 gange i denne omgang.');
 });
 
 test('king lost limit drops to three in wizard after king ultimo', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="king"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'king');
 
   await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 3 gange i denne omgang.');
   await expect(page.locator('#specialGrid')).not.toContainText('Konge gik kan registreres op til 4 gange i denne omgang.');
@@ -208,16 +200,11 @@ test('king lost limit drops to three in wizard after king ultimo', async ({ page
 test('king lost limit drops to three in wizard after king down is added', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="no"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'no');
   await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 4 gange i denne omgang.');
 
-  await page.locator('#nedActor').selectOption('1');
-  await page.locator('input[name="nedTypeR"][value="king"]').check();
-  await page.locator('#wizAddNed').click();
+  await addNedEvent(page, '1', 'king');
 
   await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 3 gange i denne omgang.');
   await expect(page.locator('#specialGrid')).not.toContainText('Konge gik kan registreres op til 4 gange i denne omgang.');
@@ -243,17 +230,11 @@ test('undo after direct nolo returns to trick-play wizard start', async ({ page 
 test('king ultimo round can be scored and closed into history', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="king"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'king');
   await page.locator('#wizApply').click();
 
-  await page.locator('#countPlayer0').fill('26');
-  await page.locator('#countPlayer1').fill('26');
-  await page.locator('#countPlayer3').fill('26');
-  await page.locator('#applyScoreBtn').click();
+  await applyStandardScoring(page);
   await page.locator('#closeRoundBtn').click();
 
   await expect(page.locator('#historyList')).toContainText('Omgang 1');
@@ -264,20 +245,12 @@ test('king ultimo round can be scored and closed into history', async ({ page })
 test('pagat down round can be scored and closed into history', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="no"]').check();
-  await page.locator('#wizNext').click();
-  await page.locator('#nedActor').selectOption('1');
-  await page.locator('input[name="nedTypeR"][value="pagat"]').check();
-  await page.locator('#wizAddNed').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'no');
+  await addNedEvent(page, '1', 'pagat');
   await page.locator('#wizApply').click();
 
-  await page.locator('#countPlayer0').fill('26');
-  await page.locator('#countPlayer1').fill('26');
-  await page.locator('#countPlayer3').fill('26');
-  await page.locator('#applyScoreBtn').click();
+  await applyStandardScoring(page);
   await page.locator('#closeRoundBtn').click();
 
   await expect(page.locator('#historyList')).toContainText('Omgang 1');
@@ -392,17 +365,11 @@ test('undo session change restores 4-player setup after switching to 3 players',
 test('undo applied scoring returns from round closed to scoring with counts intact', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="no"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'no');
   await page.locator('#wizApply').click();
 
-  await page.locator('#countPlayer0').fill('26');
-  await page.locator('#countPlayer1').fill('26');
-  await page.locator('#countPlayer3').fill('26');
-  await page.locator('#applyScoreBtn').click();
+  await applyStandardScoring(page);
   await expect(page.locator('#closeRoundBtn')).toBeVisible();
 
   await page.locator('#undoBtn').click();
@@ -418,17 +385,11 @@ test('undo applied scoring returns from round closed to scoring with counts inta
 test('undo close round restores closed round and removes history entry rollback target', async ({ page }) => {
   await startPlayPhase(page);
 
-  await page.locator('#wizNext').click();
-  await page.locator('#lastTrickPlayer').selectOption('0');
-  await page.locator('#wizNext').click();
-  await page.locator('input[name="ultimoR"][value="no"]').check();
-  await page.locator('#wizNext').click();
+  await goToLastTrickStep(page);
+  await chooseUltimoAndOpenNed(page, 'no');
   await page.locator('#wizApply').click();
 
-  await page.locator('#countPlayer0').fill('26');
-  await page.locator('#countPlayer1').fill('26');
-  await page.locator('#countPlayer3').fill('26');
-  await page.locator('#applyScoreBtn').click();
+  await applyStandardScoring(page);
   await page.locator('#closeRoundBtn').click();
   await expect(page.locator('#historyList')).toContainText('Omgang 1');
   await expect(page.locator('#headerState')).toContainText('Omgang 2');
