@@ -135,3 +135,78 @@ test('round can end with pagat down and go to scoring', async ({ page }) => {
   await expect(page.locator('#roundBalance')).toHaveText('Balancerer');
   await expect(page.locator('#totalWealth')).toHaveText('1600');
 });
+
+test('pagat down option is not available after pagat ultimo', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="pagat"]').check();
+  await page.locator('#wizNext').click();
+
+  await expect(page.locator('input[name="nedTypeR"][value="pagat"]')).toHaveCount(0);
+  await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til');
+});
+
+test('undo after direct nolo returns to trick-play wizard start', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('input[name="noloR"][value="yes"]').check();
+  await page.locator('#noloPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('#wizApply').click();
+  await expect(page.locator('#closeRoundBtn')).toBeVisible();
+
+  await page.locator('#undoBtn').click();
+
+  await expect(page.locator('#closeRoundBtn')).toBeHidden();
+  await expect(page.locator('#scoreSection')).toBeHidden();
+  await expect(page.locator('#specialGrid')).toContainText('1/4 — Nolo');
+  await expect(page.locator('#centerPhase')).toHaveText('Spil');
+});
+
+test('king ultimo round can be scored and closed into history', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="king"]').check();
+  await page.locator('#wizNext').click();
+  await page.locator('#wizApply').click();
+
+  await page.locator('#countPlayer0').fill('26');
+  await page.locator('#countPlayer1').fill('26');
+  await page.locator('#countPlayer3').fill('26');
+  await page.locator('#applyScoreBtn').click();
+  await page.locator('#closeRoundBtn').click();
+
+  await expect(page.locator('#historyList')).toContainText('Omgang 1');
+  await expect(page.locator('#historyList')).toContainText('ultimere konge');
+  await expect(page.locator('#headerState')).toContainText('Omgang 2');
+});
+
+test('pagat down round can be scored and closed into history', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="no"]').check();
+  await page.locator('#wizNext').click();
+  await page.locator('#nedActor').selectOption('1');
+  await page.locator('input[name="nedTypeR"][value="pagat"]').check();
+  await page.locator('#wizAddNed').click();
+  await page.locator('#wizApply').click();
+
+  await page.locator('#countPlayer0').fill('26');
+  await page.locator('#countPlayer1').fill('26');
+  await page.locator('#countPlayer3').fill('26');
+  await page.locator('#applyScoreBtn').click();
+  await page.locator('#closeRoundBtn').click();
+
+  await expect(page.locator('#historyList')).toContainText('Omgang 1');
+  await expect(page.locator('#historyList')).toContainText('pagat ned');
+  await expect(page.locator('#headerState')).toContainText('Omgang 2');
+});
