@@ -1019,66 +1019,81 @@
     }
 
     dom.specialGrid.innerHTML = `<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;">${inner}</div>`;
+    bindWizardStepHandlers(ws);
+  }
 
-    if (ws.step === 'nolo') {
-      const toggleNoloPlayer = () => {
-        const select = document.getElementById('noloPlayer');
-        if (!select) return;
-        const yes = document.querySelector('input[name="noloR"]:checked')?.value === 'yes';
-        select.style.display = yes ? 'inline-block' : 'none';
-      };
-      document.querySelectorAll('input[name="noloR"]').forEach(el => el.addEventListener('change', toggleNoloPlayer));
-      toggleNoloPlayer();
-      document.getElementById('wizNext').onclick = () => {
-        const choice = document.querySelector('input[name="noloR"]:checked')?.value;
-        wizardState.nolo = choice === 'yes' ? Number(document.getElementById('noloPlayer').value) : null;
-        if (wizardState.nolo !== null) {
-          wizardState.lastTrickWinner = null;
-          wizardState.step = 'ned';
-        } else {
-          wizardState.step = 'lastTrick';
-        }
-        render();
-      };
-    } else if (ws.step === 'lastTrick') {
-      const sel = document.getElementById('lastTrickPlayer');
-      if (ws.lastTrickWinner !== null) sel.value = String(ws.lastTrickWinner);
-      document.getElementById('wizBack').onclick = () => { wizardState.step = 'nolo'; render(); };
-      document.getElementById('wizNext').onclick = () => {
-        wizardState.lastTrickWinner = Number(document.getElementById('lastTrickPlayer').value);
-        wizardState.step = wizardState.nolo !== null ? 'ned' : 'ultimo';
-        render();
-      };
-    } else if (ws.step === 'ultimo') {
-      document.getElementById('wizBack').onclick = () => { wizardState.step = 'lastTrick'; render(); };
-      document.getElementById('wizNext').onclick = () => {
-        const v = document.querySelector('input[name="ultimoR"]:checked')?.value;
-        wizardState.ultimo = v === 'no' ? null : v;
+  function toggleNoloPlayerVisibility() {
+    const select = document.getElementById('noloPlayer');
+    if (!select) return;
+    const yes = document.querySelector('input[name="noloR"]:checked')?.value === 'yes';
+    select.style.display = yes ? 'inline-block' : 'none';
+  }
+
+  function handleWizardNoloStep() {
+    document.querySelectorAll('input[name="noloR"]').forEach(el => el.addEventListener('change', toggleNoloPlayerVisibility));
+    toggleNoloPlayerVisibility();
+    document.getElementById('wizNext').onclick = () => {
+      const choice = document.querySelector('input[name="noloR"]:checked')?.value;
+      wizardState.nolo = choice === 'yes' ? Number(document.getElementById('noloPlayer').value) : null;
+      if (wizardState.nolo !== null) {
+        wizardState.lastTrickWinner = null;
         wizardState.step = 'ned';
-        render();
-      };
-    } else if (ws.step === 'ned') {
-      document.getElementById('wizBack').onclick = () => {
-        wizardState.nedEvents = [];
-        wizardState.step = wizardState.nolo !== null ? 'nolo' : 'ultimo';
-        render();
-      };
-      document.getElementById('wizApply').onclick = applyWizard;
-      const addBtn = document.getElementById('wizAddNed');
-      if (addBtn) {
-        addBtn.onclick = () => {
-          const actorVal = document.getElementById('nedActor')?.value;
-          if (!actorVal) return;
-          const actorId = Number(actorVal);
-          if (!Number.isFinite(actorId)) return;
-          const nedType = document.querySelector('input[name="nedTypeR"]:checked')?.value;
-          if (!nedType) return;
-          if (wizardState.nedEvents.some(e => e.player === actorId)) return;
-          wizardState.nedEvents.push({ type: nedType, player: actorId });
-          render();
-        };
+      } else {
+        wizardState.step = 'lastTrick';
       }
-    }
+      render();
+    };
+  }
+
+  function handleWizardLastTrickStep(ws) {
+    const sel = document.getElementById('lastTrickPlayer');
+    if (ws.lastTrickWinner !== null) sel.value = String(ws.lastTrickWinner);
+    document.getElementById('wizBack').onclick = () => { wizardState.step = 'nolo'; render(); };
+    document.getElementById('wizNext').onclick = () => {
+      wizardState.lastTrickWinner = Number(document.getElementById('lastTrickPlayer').value);
+      wizardState.step = wizardState.nolo !== null ? 'ned' : 'ultimo';
+      render();
+    };
+  }
+
+  function handleWizardUltimoStep() {
+    document.getElementById('wizBack').onclick = () => { wizardState.step = 'lastTrick'; render(); };
+    document.getElementById('wizNext').onclick = () => {
+      const v = document.querySelector('input[name="ultimoR"]:checked')?.value;
+      wizardState.ultimo = v === 'no' ? null : v;
+      wizardState.step = 'ned';
+      render();
+    };
+  }
+
+  function addWizardNedEvent() {
+    const actorVal = document.getElementById('nedActor')?.value;
+    if (!actorVal) return;
+    const actorId = Number(actorVal);
+    if (!Number.isFinite(actorId)) return;
+    const nedType = document.querySelector('input[name="nedTypeR"]:checked')?.value;
+    if (!nedType) return;
+    if (wizardState.nedEvents.some(e => e.player === actorId)) return;
+    wizardState.nedEvents.push({ type: nedType, player: actorId });
+    render();
+  }
+
+  function handleWizardNedStep() {
+    document.getElementById('wizBack').onclick = () => {
+      wizardState.nedEvents = [];
+      wizardState.step = wizardState.nolo !== null ? 'nolo' : 'ultimo';
+      render();
+    };
+    document.getElementById('wizApply').onclick = applyWizard;
+    const addBtn = document.getElementById('wizAddNed');
+    if (addBtn) addBtn.onclick = addWizardNedEvent;
+  }
+
+  function bindWizardStepHandlers(ws) {
+    if (ws.step === 'nolo') handleWizardNoloStep();
+    else if (ws.step === 'lastTrick') handleWizardLastTrickStep(ws);
+    else if (ws.step === 'ultimo') handleWizardUltimoStep();
+    else if (ws.step === 'ned') handleWizardNedStep();
   }
 
   function renderHistory() {
