@@ -149,6 +149,50 @@ test('pagat down option is not available after pagat ultimo', async ({ page }) =
   await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til');
 });
 
+test('king lost can be registered four times when no king ultimo or king down applies', async ({ page }) => {
+  await startPlayPhase(page);
+
+  for (const player of ['0', '1', '3', '0']) {
+    await page.locator('#kingEventPlayer').selectOption(player);
+    await page.locator('#kingLostBtn').click();
+  }
+
+  await expect(page.locator('#playActions')).toContainText('Konge gik (4/4)');
+  await expect(page.locator('#playActions')).toContainText('Tilbage: 0');
+  await expect(page.locator('#kingLostBtn')).toBeDisabled();
+});
+
+test('king lost limit drops to three in wizard after king ultimo', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="king"]').check();
+  await page.locator('#wizNext').click();
+
+  await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 3 gange i denne omgang.');
+  await expect(page.locator('#specialGrid')).not.toContainText('Konge gik kan registreres op til 4 gange i denne omgang.');
+});
+
+test('king lost limit drops to three in wizard after king down is added', async ({ page }) => {
+  await startPlayPhase(page);
+
+  await page.locator('#wizNext').click();
+  await page.locator('#lastTrickPlayer').selectOption('0');
+  await page.locator('#wizNext').click();
+  await page.locator('input[name="ultimoR"][value="no"]').check();
+  await page.locator('#wizNext').click();
+  await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 4 gange i denne omgang.');
+
+  await page.locator('#nedActor').selectOption('1');
+  await page.locator('input[name="nedTypeR"][value="king"]').check();
+  await page.locator('#wizAddNed').click();
+
+  await expect(page.locator('#specialGrid')).toContainText('Konge gik kan registreres op til 3 gange i denne omgang.');
+  await expect(page.locator('#specialGrid')).not.toContainText('Konge gik kan registreres op til 4 gange i denne omgang.');
+});
+
 test('undo after direct nolo returns to trick-play wizard start', async ({ page }) => {
   await startPlayPhase(page);
 
