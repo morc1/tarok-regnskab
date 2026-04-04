@@ -689,48 +689,68 @@
     wizardState = null;
   }
 
+  function applyActivePlayerCounts(copy) {
+    copy.currentRound.active.forEach(id => {
+      const count = Number(document.getElementById(`countPlayer${id}`).value || 0);
+      copy.currentRound.counts[id] = count;
+      applySymmetricTransfer(copy, id, count);
+    });
+  }
+
+  function finalizeScoring(copy) {
+    copy.currentRound.flags.scoringApplied = true;
+    copy.currentRound.state = 'round_closed';
+    copy.currentRound.lastAction = 'Optælling anvendt';
+  }
+
   function applyCountScoring() {
     if (!canApplyScore()) return;
     updateSession(copy => {
-      copy.currentRound.active.forEach(id => {
-        const count = Number(document.getElementById(`countPlayer${id}`).value || 0);
-        copy.currentRound.counts[id] = count;
-        applySymmetricTransfer(copy, id, count);
-      });
-      copy.currentRound.flags.scoringApplied = true;
-      copy.currentRound.state = 'round_closed';
-      copy.currentRound.lastAction = 'Optælling anvendt';
+      applyActivePlayerCounts(copy);
+      finalizeScoring(copy);
     });
+  }
+
+  function buildHistoryEntry(copy) {
+    return {
+      round: copy.round,
+      playerCount: copy.playerCount,
+      active: [...copy.currentRound.active],
+      sittingOut: copy.currentRound.sittingOut,
+      dealer: copy.dealer,
+      result: copy.currentRound.result,
+      pagatEvent: copy.currentRound.pagatEvent,
+      kingEvents: [...copy.currentRound.kingEvents],
+      nedEvents: [...copy.currentRound.nedEvents],
+      playerDeltas: [...copy.currentRound.playerDeltas],
+      cupDeltas: { ...copy.currentRound.cupDeltas },
+      counts: [...copy.currentRound.counts],
+      announcementsLog: [...copy.currentRound.announcementsLog],
+      note: copy.currentRound.note,
+    };
+  }
+
+  function settleRoundBalances(copy) {
+    visiblePlayerIds(copy).forEach(i => {
+      copy.players[i].balance += copy.currentRound.playerDeltas[i];
+    });
+    copy.cups.pagat += copy.currentRound.cupDeltas.pagat;
+    copy.cups.konge += copy.currentRound.cupDeltas.konge;
+  }
+
+  function advanceToNextRound(copy) {
+    copy.round += 1;
+    copy.dealer = (copy.dealer + 1) % copy.playerCount;
+    copy.currentRound = createRound(copy.playerCount, copy.dealer);
   }
 
   function closeRound() {
     if (!canCloseRound()) return;
     updateSession(copy => {
       copy.currentRound.note = dom.roundNote.value;
-      visiblePlayerIds(copy).forEach(i => {
-        copy.players[i].balance += copy.currentRound.playerDeltas[i];
-      });
-      copy.cups.pagat += copy.currentRound.cupDeltas.pagat;
-      copy.cups.konge += copy.currentRound.cupDeltas.konge;
-      copy.history.unshift({
-        round: copy.round,
-        playerCount: copy.playerCount,
-        active: [...copy.currentRound.active],
-        sittingOut: copy.currentRound.sittingOut,
-        dealer: copy.dealer,
-        result: copy.currentRound.result,
-        pagatEvent: copy.currentRound.pagatEvent,
-        kingEvents: [...copy.currentRound.kingEvents],
-        nedEvents: [...copy.currentRound.nedEvents],
-        playerDeltas: [...copy.currentRound.playerDeltas],
-        cupDeltas: { ...copy.currentRound.cupDeltas },
-        counts: [...copy.currentRound.counts],
-        announcementsLog: [...copy.currentRound.announcementsLog],
-        note: copy.currentRound.note,
-      });
-      copy.round += 1;
-      copy.dealer = (copy.dealer + 1) % copy.playerCount;
-      copy.currentRound = createRound(copy.playerCount, copy.dealer);
+      settleRoundBalances(copy);
+      copy.history.unshift(buildHistoryEntry(copy));
+      advanceToNextRound(copy);
     });
     dom.roundNote.value = '';
     renderDefaultCounts();
