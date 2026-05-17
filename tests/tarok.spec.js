@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
 async function openApp(page) {
-  await page.goto('http://127.0.0.1:4173/tarok_v2.html');
+  await page.goto('http://127.0.0.1:4173/');
 }
 
 async function startPlayPhase(page) {

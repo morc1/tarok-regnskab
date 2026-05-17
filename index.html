@@ -93,6 +93,18 @@
       .seat-top,.seat-left,.seat-center,.seat-right,.seat-bottom { grid-column:auto; grid-row:auto; }
       .cups,.actions-grid,.special-grid,.row { grid-template-columns:1fr; }
     }
+    @media (max-width:480px) {
+      .phase-strip { grid-template-columns:repeat(5,minmax(52px,1fr)); gap:4px; overflow-x:auto; padding-bottom:2px; }
+      .phase { padding:5px 3px; font-size:11px; }
+      .header-actions { gap:5px; }
+      .header-actions button { font-size:12px; padding:6px 8px; }
+      .table-grid { display:flex; flex-wrap:wrap; }
+      .seat-center { flex:1 1 100%; order:-1; }
+      .seat-top,.seat-left,.seat-right,.seat-bottom { flex:1 1 calc(50% - 4px); min-width:0; }
+      .player-card { min-height:0; padding:10px; gap:6px; }
+      .tarot-face { display:none; }
+      .saldo { font-size:22px; }
+    }
   </style>
 </head>
 <body>
